@@ -1,0 +1,51 @@
+<?php
+/**
+ * ==============================================================================
+ * TEMPLATE KONFIGURASI DATABASE & RUMAH SAKIT - PORTAL PASIEN MOBILE SIMGOS 2
+ * ==============================================================================
+ * Pengembang: Suriyandi (SIRS RSUP dr. Ben Mboi Kupang)
+ * 
+ * Petunjuk:
+ * 1. Salin (copy) file ini menjadi "db.local.php" di folder yang sama:
+ *    cp db.local.php.example db.local.php
+ * 2. Sesuaikan kredensial database MySQL dan Webservice URL SIMGOS rumah sakit Anda.
+ * 3. File "db.local.php" otomatis diabaikan oleh Git (.gitignore) sehingga aman dari kebocoran.
+ */
+
+return [
+    // --------------------------------------------------------------------------
+    // 1. KONEKSI DATABASE MYSQL SIMGOS 2 (Wajib Disesuaikan)
+    // --------------------------------------------------------------------------
+    'host'           => 'localhost',     // IP atau Hostname Database Server SIMGOS
+    'port'           => 3306,            // Port MySQL (default: 3306)
+    'user'           => 'root',          // Username MySQL
+    'pass'           => '',              // Password MySQL
+    'database'       => 'aplikasi',      // Database default SIMGOS (default: aplikasi)
+
+    // --------------------------------------------------------------------------
+    // 2. SIMGOS WEBSERVICE & JASPER REPORT ENGINE (Wajib Disesuaikan)
+    // --------------------------------------------------------------------------
+    // URL endpoint webservice SIMGOS untuk Document Storage & Cetak PDF Live Jasper
+    'webservice_url' => 'http://localhost/webservice',
+
+    // --------------------------------------------------------------------------
+    // 3. IDENTITAS RUMAH SAKIT (Opsional)
+    // --------------------------------------------------------------------------
+    // Secara otomatis aplikasi akan mendeteksi Nama RS dan Kode PPK dari tabel:
+    // `aplikasi.instansi` dan `master.ppk`.
+    // Namun jika ingin menentukan secara manual, isi parameter di bawah:
+    
+    // 'kode_ppk'        => '5303056',               // Kode Faskes / PPK Kemenkes 7 Digit
+    // 'nama_rs'         => 'RSUD Contoh Sehat',     // Nama Rumah Sakit untuk Header & Kartu Pasien
+    // 'kota'            => 'Kupang',                // Kota lokasi RS
+
+    // --------------------------------------------------------------------------
+    // 4. ZONA WAKTU / TIMEZONE (Opsional)
+    // --------------------------------------------------------------------------
+    // Sesuaikan zona waktu lokasi rumah sakit Anda:
+    // - Indonesia Barat : 'Asia/Jakarta'  (Label: 'WIB')
+    // - Indonesia Tengah: 'Asia/Makassar' (Label: 'WITA')
+    // - Indonesia Timur : 'Asia/Jayapura' (Label: 'WIT')
+    'timezone'         => 'Asia/Makassar',
+    'zona_waktu_label' => 'WITA',
+];

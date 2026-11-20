@@ -1,0 +1,19 @@
+# SIMGoS Pasien Mobile - Git Ignore
+# Mengabaikan kredensial lokal dan file cache sensitif
+
+# Konfigurasi Database Lokal (Berisi password & host internal RS)
+db.local.php
+
+# Web Server & OS Temporary Files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+sessions/
+tmp/
+
+# Editor & IDE configs
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace

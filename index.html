@@ -2807,7 +2807,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.10').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.11').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -2871,6 +2871,56 @@
             switchAuthStep('identifier');
             document.getElementById('view-login').classList.remove('hidden');
             document.getElementById('view-dashboard').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function showDashboard(userData) {
+            currentUser = userData;
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-dashboard').classList.remove('hidden');
+
+            const patientName = userData.nama || 'Pasien';
+
+            // Set Header & Profil
+            document.getElementById('top-patient-name').textContent = patientName;
+            document.getElementById('badge-top-rm').textContent = 'RM: ' + (userData.norm_formatted || userData.norm);
+
+            // Set Avatar Initials
+            const avatarInitialEl = document.getElementById('top-avatar-initial');
+            if (avatarInitialEl) {
+                const parts = patientName.trim().split(/\s+/);
+                const initials = (parts[0]?.[0] || 'P') + (parts[1]?.[0] || '');
+                avatarInitialEl.textContent = initials.toUpperCase();
+            }
+
+            // Set Dynamic Greeting & Today's Date
+            const hour = new Date().getHours();
+            let greetingTime = 'Pagi';
+            if (hour >= 11 && hour < 15) greetingTime = 'Siang';
+            else if (hour >= 15 && hour < 18) greetingTime = 'Sore';
+            else if (hour >= 18 || hour < 4) greetingTime = 'Malam';
+
+            const greetTimeEl = document.getElementById('home-greeting-time');
+            if (greetTimeEl) greetTimeEl.textContent = 'Selamat ' + greetingTime + ',';
+
+            const greetNameEl = document.getElementById('home-greeting-name');
+            if (greetNameEl) {
+                const firstName = patientName.trim().split(/\s+/)[0];
+                greetNameEl.textContent = firstName + ' 👋';
+            }
+
+            const dateTodayEl = document.getElementById('home-date-today');
+            if (dateTodayEl) {
+                const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
+                const formattedDate = new Date().toLocaleDateString('id-ID', options);
+                dateTodayEl.textContent = formattedDate + ' • Terverifikasi';
+            }
+
+            // Render Kartu Pasien
+            renderDigitalCard(userData);
+
+            // Muat Data Dashboard
+            loadDashboardSummary();
             lucide.createIcons();
         }
 

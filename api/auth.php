@@ -439,6 +439,27 @@ if ($action === 'verify_identity') {
 
     $norm = (int)$pasien['NORM'];
 
+    // Keamanan Ketat (Opsi 3): Verifikasi identitas hanya berlaku untuk aktivasi akun baru (belum punya PIN).
+    // Jika akun sudah memiliki PIN, tolak reset dari luar demi melindungi kerahasiaan rekam medis.
+    $pdoReg = PasienConfig::getConnection('regonline');
+    ensurePasienAuthTable($pdoReg);
+    if ($pdoReg) {
+        $stmtCheckPin = $pdoReg->prepare("
+            SELECT PIN_HASH 
+            FROM regonline.pasien_auth 
+            WHERE NORM = :norm AND PIN_HASH IS NOT NULL AND TRIM(PIN_HASH) != '' 
+            LIMIT 1
+        ");
+        $stmtCheckPin->execute([':norm' => $norm]);
+        $existingPin = $stmtCheckPin->fetchColumn();
+        if ($existingPin) {
+            PasienConfig::jsonResponse([
+                'success' => false,
+                'message' => 'Akun Anda sudah memiliki PIN aktif. Demi menjaga privasi rekam medis, PIN tidak dapat di-reset dari luar. Silakan ubah PIN dari menu Profil setelah login, atau hubungi Petugas Loket RS.'
+            ], 403);
+        }
+    }
+
     // Normalisasi Tanggal Lahir
     $dobParsed = null;
     $dobAltParsed = null;

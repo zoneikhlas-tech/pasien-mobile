@@ -212,10 +212,66 @@ function verifyAuthToken($token) {
     return null;
 }
 
+/**
+ * Mendapatkan Alamat IP Klien (Mendukung Cloudflare Proxy & Reverse Proxy RS)
+ */
+function getClientIpAddress() {
+    if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+        return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+        return trim($ips[0]);
+    }
+    return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+}
+
+/**
+ * Rate Limiting Sederhana & Cepat (Anti-Brute Force & Anti-Scraping Data Pasien)
+ */
+function checkAuthRateLimit($actionKey = 'check_identifier', $maxAttempts = 20, $windowSeconds = 60) {
+    $ip = getClientIpAddress();
+    $hash = md5($ip . '_' . $actionKey);
+    $tempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'simgos_rl';
+    if (!is_dir($tempDir)) {
+        @mkdir($tempDir, 0755, true);
+    }
+    $file = $tempDir . DIRECTORY_SEPARATOR . $hash . '.json';
+
+    $now = time();
+    $data = ['count' => 0, 'start' => $now];
+    if (file_exists($file)) {
+        $content = @file_get_contents($file);
+        if ($content) {
+            $parsed = @json_decode($content, true);
+            if (is_array($parsed) && isset($parsed['start'], $parsed['count'])) {
+                if ($now - $parsed['start'] < $windowSeconds) {
+                    $data = $parsed;
+                }
+            }
+        }
+    }
+
+    $data['count']++;
+    @file_put_contents($file, json_encode($data), LOCK_EX);
+
+    if ($data['count'] > $maxAttempts) {
+        $retryAfter = max(1, $windowSeconds - ($now - $data['start']));
+        header('Retry-After: ' . $retryAfter);
+        PasienConfig::jsonResponse([
+            'success' => false,
+            'message' => 'Terlalu banyak permintaan dalam waktu singkat. Demi keamanan data medis, silakan tunggu beberapa saat lagi.'
+        ], 429);
+    }
+}
+
 // ==============================================================================
 // 1. ACTION: CHECK IDENTIFIER (Cek apakah pasien ada dan sudah punya PIN)
 // ==============================================================================
 if ($action === 'check_identifier') {
+    // Rate Limiting: Maksimal 20 lookup identitas per menit per IP (Mencegah enumerasi No. RM / scraping massal)
+    checkAuthRateLimit('check_identifier', 20, 60);
+
     $identifier = trim((string)($input['identifier'] ?? ''));
     if (empty($identifier)) {
         PasienConfig::jsonResponse(['success' => false, 'message' => 'Masukkan No. Rekam Medis (No. RM) atau 16 Digit NIK Anda.'], 400);
@@ -287,11 +343,13 @@ if ($action === 'check_identifier') {
         }
     } catch (Exception $e) {}
 
+    // Privasi Medis: Nama disensor pada tahap pra-login untuk mencegah kebocoran identitas
+    $maskedName = maskPatientName($pasien['NAMA']);
     $patientData = [
         'norm'                  => $norm,
         'norm_formatted'        => str_pad($norm, 8, '0', STR_PAD_LEFT),
-        'nama'                  => $pasien['NAMA'],
-        'nama_display'          => maskPatientName($pasien['NAMA']),
+        'nama'                  => $maskedName,
+        'nama_display'          => $maskedName,
         'has_pin'               => $hasPin,
         'is_locked'             => $isLocked,
         'lock_remaining_minutes'=> $lockRemainingMinutes,
@@ -308,6 +366,9 @@ if ($action === 'check_identifier') {
 // 2. ACTION: LOGIN PIN (Masuk menggunakan 6 Digit PIN Pribadi)
 // ==============================================================================
 if ($action === 'login_pin') {
+    // Rate Limiting: Maksimal 30 percobaan login PIN per menit per IP
+    checkAuthRateLimit('login_pin', 30, 60);
+
     $identifier = trim((string)($input['identifier'] ?? $input['norm'] ?? ''));
     $pin        = trim((string)($input['pin'] ?? ''));
 
@@ -408,9 +469,11 @@ if ($action === 'login_pin') {
     ");
     $stmtSuccess->execute([':norm' => $norm]);
 
-    // Bentuk sesi login resmi
+    // Regenerasi Session ID (Mencegah Session Fixation) & Inisialisasi Sesi Login Resmi
+    session_regenerate_id(true);
     $userData = buildUserSessionData($norm, $pasien, $pdoMaster, $pdoDaftar);
     $_SESSION['pasien_user'] = $userData;
+    $_SESSION['pasien_last_active'] = time();
 
     PasienConfig::jsonResponse([
         'success' => true,
@@ -423,6 +486,9 @@ if ($action === 'login_pin') {
 // 3. ACTION: VERIFY IDENTITY (Untuk Aktivasi PIN Pertama Kali atau Lupa PIN)
 // ==============================================================================
 if ($action === 'verify_identity') {
+    // Rate Limiting: Maksimal 15 percobaan verifikasi per menit per IP (Anti-Brute Force Data Pasien)
+    checkAuthRateLimit('verify_identity', 15, 60);
+
     $identifier     = trim((string)($input['identifier'] ?? $input['norm'] ?? ''));
     $tglLahirInput  = trim((string)($input['tgl_lahir'] ?? ''));
     $lastPhoneInput = trim((string)($input['last_phone'] ?? ''));
@@ -604,7 +670,8 @@ if ($action === 'set_pin') {
     // Hapus token sementara
     unset($_SESSION['temp_auth_norm'], $_SESSION['temp_auth_time']);
 
-    // Langsung buat sesi login aktif pasien
+    // Regenerasi Session ID & Langsung buat sesi login aktif pasien
+    session_regenerate_id(true);
     $pasien = findPatientByIdentifier($tempNorm, $pdoMaster);
     if (!$pasien) {
         $pasien = [
@@ -619,6 +686,7 @@ if ($action === 'set_pin') {
     }
     $userData = buildUserSessionData($tempNorm, $pasien, $pdoMaster, $pdoDaftar);
     $_SESSION['pasien_user'] = $userData;
+    $_SESSION['pasien_last_active'] = time();
 
     PasienConfig::jsonResponse([
         'success' => true,
@@ -694,6 +762,7 @@ if ($action === 'check') {
 
 if ($action === 'logout') {
     unset($_SESSION['pasien_user']);
+    unset($_SESSION['pasien_last_active']);
     unset($_SESSION['temp_auth_norm']);
     unset($_SESSION['temp_auth_time']);
     if (session_status() === PHP_SESSION_ACTIVE) {

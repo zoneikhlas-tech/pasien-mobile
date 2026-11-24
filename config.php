@@ -12,14 +12,40 @@
 error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
 ini_set('display_errors', '0');
 
-// Mulai Sesi Mandiri Portal Pasien
+// Mulai Sesi Mandiri Portal Pasien dengan Cookie Flags Aman (HttpOnly, SameSite=Lax, Secure jika HTTPS)
 if (session_status() === PHP_SESSION_NONE) {
     session_name('SIMGOS_PASIEN_SESS');
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+               || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+               || (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'secure'   => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
     session_start();
 }
 
-// Enable CORS
-header('Access-Control-Allow-Origin: *');
+// HTTP Security Headers (Anti-Clickjacking, MIME Sniffing, Referrer Policy)
+header('X-Frame-Options: SAMEORIGIN');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+
+// CORS Protection (Hanya izinkan Origin yang sama atau domain resmi RS)
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if (!empty($origin)) {
+    $parsedHost = parse_url($origin, PHP_URL_HOST);
+    $serverHost = $_SERVER['HTTP_HOST'] ?? '';
+    if ($parsedHost === $serverHost || preg_match('/(^|\.)(psyco\.fun|localhost|127\.0\.0\.1|10\.10\.)/i', (string)$parsedHost)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+        header('Access-Control-Allow-Credentials: true');
+    }
+} else {
+    header('Access-Control-Allow-Origin: *');
+}
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
@@ -247,14 +273,41 @@ class PasienConfig {
             self::jsonResponse([
                 'success' => false,
                 'authenticated' => false,
-                'message' => 'Sesi login pasien telah berakhir. Silakan verifikasi identitas Anda kembali.'
+                'message' => 'Sesi login telah berakhir. Silakan masukkan PIN kembali.'
             ], 401);
         }
+
+        // Auto-Logout jika tidak aktif selama 30 menit (Inactivity Timeout)
+        $now = time();
+        $lastActive = $_SESSION['pasien_last_active'] ?? $now;
+        if (($now - $lastActive) > 1800) {
+            unset($_SESSION['pasien_user'], $_SESSION['pasien_last_active']);
+            self::jsonResponse([
+                'success' => false,
+                'authenticated' => false,
+                'message' => 'Sesi Anda telah berakhir otomatis karena tidak ada aktivitas selama 30 menit demi keamanan data medis Anda.'
+            ], 401);
+        }
+        $_SESSION['pasien_last_active'] = $now;
+
         return $_SESSION['pasien_user'];
     }
 
     public static function getActivePatient() {
-        return $_SESSION['pasien_user'] ?? null;
+        if (!isset($_SESSION['pasien_user']) || empty($_SESSION['pasien_user']['norm'])) {
+            return null;
+        }
+
+        // Auto-Logout jika tidak aktif selama 30 menit
+        $now = time();
+        $lastActive = $_SESSION['pasien_last_active'] ?? $now;
+        if (($now - $lastActive) > 1800) {
+            unset($_SESSION['pasien_user'], $_SESSION['pasien_last_active']);
+            return null;
+        }
+        $_SESSION['pasien_last_active'] = $now;
+
+        return $_SESSION['pasien_user'];
     }
 
     public static function formatTglIndo($dateStr, $includeDay = true) {

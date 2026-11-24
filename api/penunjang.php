@@ -239,6 +239,28 @@ if ($action === 'view_lab_pdf') {
         PasienConfig::jsonResponse(['success' => false, 'message' => 'Parameter lab_kunjungan diperlukan.'], 400);
     }
 
+    // Validasi Keamanan (Anti-IDOR): Pastikan kunjungan lab ini benar milik pasien yang login
+    $hasAccessLab = false;
+    if ($pdoDaftar !== null) {
+        try {
+            $stmtAuthLab = $pdoDaftar->prepare("
+                SELECT 1
+                FROM pendaftaran.kunjungan k
+                JOIN pendaftaran.pendaftaran p ON p.NOMOR = k.NOPEN
+                WHERE k.NOMOR = :kunj AND p.NORM = :norm
+                LIMIT 1
+            ");
+            $stmtAuthLab->execute([':kunj' => $labKunjungan, ':norm' => $norm]);
+            if ($stmtAuthLab->fetchColumn()) {
+                $hasAccessLab = true;
+            }
+        } catch (Exception $eAuthLab) {}
+    }
+
+    if (!$hasAccessLab) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Anda tidak memiliki hak akses untuk membuka dokumen medis ini.'], 403);
+    }
+
     $wsBaseUrl = getPenunjangWebserviceUrl();
     $rawPdf = null;
 
@@ -353,6 +375,33 @@ if ($action === 'view_rad_pdf') {
 
     if (empty($tindakanMedis) && empty($radKunjungan)) {
         PasienConfig::jsonResponse(['success' => false, 'message' => 'Parameter tindakan_medis atau rad_kunjungan diperlukan.'], 400);
+    }
+
+    // Validasi Keamanan (Anti-IDOR): Pastikan tindakan / kunjungan radiologi ini milik pasien yang login
+    $hasAccessRad = false;
+    if ($pdoDaftar !== null) {
+        try {
+            $stmtAuthRad = $pdoDaftar->prepare("
+                SELECT 1
+                FROM pendaftaran.kunjungan k
+                JOIN pendaftaran.pendaftaran p ON p.NOMOR = k.NOPEN
+                LEFT JOIN layanan.tindakan_medis tm ON tm.KUNJUNGAN = k.NOMOR
+                WHERE (k.NOMOR = :kunj OR tm.ID = :tm) AND p.NORM = :norm
+                LIMIT 1
+            ");
+            $stmtAuthRad->execute([
+                ':kunj' => $radKunjungan ?: '0',
+                ':tm'   => $tindakanMedis ?: '0',
+                ':norm' => $norm
+            ]);
+            if ($stmtAuthRad->fetchColumn()) {
+                $hasAccessRad = true;
+            }
+        } catch (Exception $eAuthRad) {}
+    }
+
+    if (!$hasAccessRad) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Anda tidak memiliki hak akses untuk membuka dokumen medis ini.'], 403);
     }
 
     $wsBaseUrl = getPenunjangWebserviceUrl();

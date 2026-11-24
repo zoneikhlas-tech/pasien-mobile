@@ -1,7 +1,7 @@
 /**
  * Service Worker - PasienKu RSUP dr. Ben Mboi Kupang
  */
-const CACHE_NAME = 'pasienku-v2.1.9';
+const CACHE_NAME = 'pasienku-v2.1.10';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();

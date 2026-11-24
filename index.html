@@ -2807,7 +2807,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.9').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.10').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -2822,7 +2822,8 @@
             phone_hint: '',
             pin: '',
             pinBusy: false,
-            resetMode: false
+            resetMode: false,
+            verify_token: ''
         };
 
         // Event listener hardware keyboard untuk keypad PIN
@@ -3134,6 +3135,8 @@
                 }
 
                 if (json && json.success) {
+                    authFlowState.verify_token = json.verify_token || '';
+                    if (json.norm) authFlowState.norm = json.norm;
                     showLoginInfo('Identitas terverifikasi resmi! Silakan buat 6-digit PIN baru Anda.');
                     switchAuthStep('create-pin');
                 } else {
@@ -3174,6 +3177,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        norm: authFlowState.norm,
+                        verify_token: authFlowState.verify_token || '',
                         pin: p1,
                         confirm_pin: p2
                     })

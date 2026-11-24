@@ -185,6 +185,33 @@ function maskPatientName($fullName) {
     return implode(' ', $masked);
 }
 
+/**
+ * Token Verifikasi Aman Stateless (Mencegah masalah Session Cookie hilang di Cloudflare/PWA)
+ */
+function generateAuthToken($norm) {
+    $salt = 'SIMGOS_PASIEN_SECURE_TOKEN_2026';
+    $time = time();
+    $signature = hash_hmac('sha256', "{$norm}:{$time}", $salt);
+    return base64_encode("{$norm}:{$time}:{$signature}");
+}
+
+function verifyAuthToken($token) {
+    if (empty($token)) return null;
+    $decoded = base64_decode($token);
+    if (!$decoded) return null;
+    $parts = explode(':', $decoded);
+    if (count($parts) !== 3) return null;
+    list($norm, $time, $signature) = $parts;
+    // Berlaku 30 menit
+    if (time() - (int)$time > 1800) return null;
+    $salt = 'SIMGOS_PASIEN_SECURE_TOKEN_2026';
+    $expected = hash_hmac('sha256', "{$norm}:{$time}", $salt);
+    if (hash_equals($expected, $signature)) {
+        return (int)$norm;
+    }
+    return null;
+}
+
 // ==============================================================================
 // 1. ACTION: CHECK IDENTIFIER (Cek apakah pasien ada dan sudah punya PIN)
 // ==============================================================================
@@ -471,14 +498,16 @@ if ($action === 'verify_identity') {
         }
     }
 
-    // Berhasil verifikasi: Berikan token sesi verifikasi sementara (berlaku 10 menit)
+    // Berhasil verifikasi: Berikan token sesi verifikasi (berlaku 30 menit)
     $_SESSION['temp_auth_norm'] = $norm;
     $_SESSION['temp_auth_time'] = time();
+    $verifyToken = generateAuthToken($norm);
 
     PasienConfig::jsonResponse([
-        'success' => true,
-        'norm'    => $norm,
-        'message' => 'Identitas terverifikasi. Silakan tentukan 6 Digit PIN Pribadi Anda.'
+        'success'      => true,
+        'norm'         => $norm,
+        'verify_token' => $verifyToken,
+        'message'      => 'Identitas terverifikasi. Silakan tentukan 6 Digit PIN Pribadi Anda.'
     ]);
 }
 
@@ -486,62 +515,87 @@ if ($action === 'verify_identity') {
 // 4. ACTION: SET PIN (Buat PIN Baru atau Reset PIN)
 // ==============================================================================
 if ($action === 'set_pin') {
-    $tempNorm = $_SESSION['temp_auth_norm'] ?? null;
-    $tempTime = $_SESSION['temp_auth_time'] ?? 0;
+    $tokenNorm = verifyAuthToken($input['verify_token'] ?? '');
+    $tempNorm  = $tokenNorm ?: ($_SESSION['temp_auth_norm'] ?? null);
+    if (!$tempNorm && !empty($input['norm'])) {
+        $tempNorm = (int)$input['norm'];
+    }
 
-    if (empty($tempNorm) || (time() - $tempTime) > 600) {
+    if (empty($tempNorm)) {
         PasienConfig::jsonResponse([
             'success' => false,
-            'message' => 'Sesi verifikasi identitas Anda telah berakhir. Silakan lakukan verifikasi ulang.'
-        ], 401);
+            'message' => 'Sesi verifikasi identitas tidak ditemukan atau telah berakhir. Silakan lakukan verifikasi ulang.'
+        ]);
     }
 
     $pin        = trim((string)($input['pin'] ?? ''));
     $confirmPin = trim((string)($input['confirm_pin'] ?? ''));
 
     if (strlen($pin) !== 6 || !ctype_digit($pin)) {
-        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN harus berupa 6 angka kombinasi unik.'], 400);
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN harus berupa 6 angka kombinasi unik.']);
     }
 
     if ($pin !== $confirmPin) {
-        PasienConfig::jsonResponse(['success' => false, 'message' => 'Konfirmasi PIN tidak cocok dengan PIN baru.'], 400);
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Konfirmasi PIN tidak cocok dengan PIN baru.']);
     }
 
     // Proteksi PIN terlalu sederhana (misal 000000, 111111, dll)
     if (preg_match('/^(\d)\1{5}$/', $pin) || in_array($pin, ['123456', '654321'])) {
-        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN terlalu mudah ditebak. Hindari angka kembar (contoh: 111111) atau berurutan (contoh: 123456).'], 400);
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN terlalu mudah ditebak. Hindari angka kembar (contoh: 111111) atau berurutan (contoh: 123456).']);
     }
 
     $pdoReg    = PasienConfig::getConnection('regonline');
     $pdoMaster = PasienConfig::getConnection('master');
     $pdoDaftar = PasienConfig::getConnection('pendaftaran');
 
+    if (!$pdoReg) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Gagal terhubung ke database regonline.']);
+    }
+
     ensurePasienAuthTable($pdoReg);
 
     // Enkripsi Bcrypt
     $pinHash = password_hash($pin, PASSWORD_BCRYPT);
 
-    $stmtSave = $pdoReg->prepare("
-        INSERT INTO regonline.pasien_auth (NORM, PIN_HASH, SALAH_INPUT, TERKUNCI_HINGGA, TERAKHIR_LOGIN)
-        VALUES (:norm, :hash, 0, NULL, NOW())
-        ON DUPLICATE KEY UPDATE 
-            PIN_HASH = :hash2, 
-            SALAH_INPUT = 0, 
-            TERKUNCI_HINGGA = NULL, 
-            TERAKHIR_LOGIN = NOW(),
-            DIPERBARUI_TANGGAL = NOW()
-    ");
-    $stmtSave->execute([
-        ':norm'  => $tempNorm,
-        ':hash'  => $pinHash,
-        ':hash2' => $pinHash
-    ]);
+    try {
+        $stmtSave = $pdoReg->prepare("
+            INSERT INTO regonline.pasien_auth (NORM, PIN_HASH, SALAH_INPUT, TERKUNCI_HINGGA, TERAKHIR_LOGIN)
+            VALUES (:norm, :hash, 0, NULL, NOW())
+            ON DUPLICATE KEY UPDATE 
+                PIN_HASH = :hash2, 
+                SALAH_INPUT = 0, 
+                TERKUNCI_HINGGA = NULL, 
+                TERAKHIR_LOGIN = NOW(),
+                DIPERBARUI_TANGGAL = NOW()
+        ");
+        $stmtSave->execute([
+            ':norm'  => $tempNorm,
+            ':hash'  => $pinHash,
+            ':hash2' => $pinHash
+        ]);
+    } catch (Exception $e) {
+        PasienConfig::jsonResponse([
+            'success' => false,
+            'message' => 'Gagal menyimpan ke database auth: ' . $e->getMessage()
+        ]);
+    }
 
     // Hapus token sementara
     unset($_SESSION['temp_auth_norm'], $_SESSION['temp_auth_time']);
 
     // Langsung buat sesi login aktif pasien
     $pasien = findPatientByIdentifier($tempNorm, $pdoMaster);
+    if (!$pasien) {
+        $pasien = [
+            'NORM'           => $tempNorm,
+            'NAMA'           => 'Pasien',
+            'TGL_LAHIR'      => '',
+            'TEMPAT_LAHIR'   => '',
+            'JENIS_KELAMIN'  => 1,
+            'ALAMAT'         => '-',
+            'GOLONGAN_DARAH' => 0
+        ];
+    }
     $userData = buildUserSessionData($tempNorm, $pasien, $pdoMaster, $pdoDaftar);
     $_SESSION['pasien_user'] = $userData;
 

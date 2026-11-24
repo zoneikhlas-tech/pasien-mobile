@@ -59,22 +59,49 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 
     <style>
-        body {
+        * {
+            box-sizing: border-box;
+        }
+        html, body {
+            overflow-x: hidden;
+            max-width: 100vw;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             background-color: #f8fafc;
             background-image: 
-                radial-gradient(at 0% 0%, rgba(13, 148, 136, 0.08) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.05) 0px, transparent 50%),
-                radial-gradient(at 0% 100%, rgba(20, 184, 166, 0.06) 0px, transparent 50%);
+                radial-gradient(ellipse at 50% 0%, rgba(15, 118, 110, 0.05) 0%, transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.03) 0%, transparent 40%);
             background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
         input, select, textarea {
             user-select: text;
+            max-width: 100%;
+            min-width: 0;
         }
+        select {
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        /* Defensive text wrapping across all cards & containers */
+        p, span, h1, h2, h3, h4, h5, h6, label {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        .truncate-safe {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .break-words-safe {
+            word-break: break-word;
+            overflow-wrap: break-word;
+            min-width: 0;
+        }
+
         /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -91,14 +118,12 @@
             padding-top: env(safe-area-inset-top, 16px);
         }
 
-        /* Luxury Design System Classes */
+        /* Medical Grade Surface Classes */
         .card-luxury {
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.85);
-            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
-            border-radius: 1.5rem;
+            box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+            border-radius: 1.25rem;
         }
         .pin-dot {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -106,17 +131,17 @@
         .pin-dot.filled {
             background-color: #0f766e;
             border-color: #0f766e;
-            transform: scale(1.2);
-            box-shadow: 0 0 10px rgba(15, 118, 110, 0.45);
+            transform: scale(1.15);
+            box-shadow: 0 0 8px rgba(15, 118, 110, 0.4);
         }
         .pin-key {
-            transition: all 0.15s ease-out;
+            transition: all 0.12s ease-out;
             user-select: none;
             -webkit-user-select: none;
         }
         .pin-key:active {
             transform: scale(0.92);
-            background-color: #e2e8f0;
+            background-color: #cbd5e1;
         }
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
@@ -126,46 +151,47 @@
         .shake-animation {
             animation: shake 0.4s ease-in-out;
         }
-        .card-luxury-glow {
-            box-shadow: 0 12px 30px -8px rgba(13, 148, 136, 0.18), 0 4px 12px -2px rgba(13, 148, 136, 0.08);
+
+        /* Solid, authoritative clinical action buttons (Anti-AI Slop) */
+        .btn-primary-teal {
+            background-color: #0f766e;
+            color: #ffffff;
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 1px 2px 0 rgba(15, 118, 110, 0.2);
         }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
+        .btn-primary-teal:hover {
+            background-color: #115e59;
         }
-        .btn-shimmer-gold {
-            background: linear-gradient(90deg, #d97706 0%, #f59e0b 25%, #fef08a 50%, #f59e0b 75%, #d97706 100%);
-            background-size: 200% 100%;
-            animation: shimmer 4s infinite linear;
+        .btn-primary-teal:active {
+            transform: scale(0.98);
+            background-color: #134e4a;
         }
-        .btn-shimmer-teal {
-            background: linear-gradient(90deg, #0f766e 0%, #0d9488 25%, #5eead4 50%, #0d9488 75%, #0f766e 100%);
-            background-size: 200% 100%;
-            animation: shimmer 5s infinite linear;
+
+        .btn-primary-amber {
+            background-color: #f59e0b;
+            color: #0f172a;
+            transition: all 0.15s ease-in-out;
+            box-shadow: 0 1px 2px 0 rgba(245, 158, 11, 0.25);
         }
+        .btn-primary-amber:hover {
+            background-color: #d97706;
+        }
+        .btn-primary-amber:active {
+            transform: scale(0.98);
+        }
+
         .nav-dock {
-            background: rgba(255, 255, 255, 0.90);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-top: 1px solid rgba(226, 232, 240, 0.85);
-            box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.04);
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
         }
         .card-hologram {
             position: relative;
             overflow: hidden;
-            background: linear-gradient(135deg, #042f2e 0%, #0f766e 45%, #064e3b 80%, #022c22 100%);
-            box-shadow: 0 20px 40px -15px rgba(13, 148, 136, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.25);
-        }
-        .card-hologram::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(60deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
-            pointer-events: none;
-            transform: rotate(25deg);
+            background: linear-gradient(135deg, #042f2e 0%, #0f766e 55%, #064e3b 100%);
+            box-shadow: 0 12px 28px -10px rgba(13, 148, 136, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.2);
         }
         .ticket-cutout {
             position: relative;
@@ -173,16 +199,16 @@
         .ticket-cutout::before, .ticket-cutout::after {
             content: '';
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             background: #f8fafc;
             border-radius: 50%;
             top: 50%;
             transform: translateY(-50%);
             z-index: 10;
         }
-        .ticket-cutout::before { left: -11px; }
-        .ticket-cutout::after { right: -11px; }
+        .ticket-cutout::before { left: -10px; }
+        .ticket-cutout::after { right: -10px; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col font-sans select-none">
@@ -262,7 +288,7 @@
 
                         <div class="pt-1">
                             <button type="submit" id="btn-identifier-submit" 
-                                class="btn-shimmer-teal w-full py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg shadow-teal-700/25 flex items-center justify-center gap-2 active:scale-98 transition duration-200">
+                                class="btn-primary-teal w-full py-3.5 px-4 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition duration-150">
                                 <span>Lanjutkan</span>
                                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
                             </button>
@@ -371,7 +397,7 @@
                                 Kembali
                             </button>
                             <button type="submit" id="btn-verify-submit" 
-                                class="flex-1 btn-shimmer-teal py-3 px-3 rounded-2xl text-white font-extrabold text-xs shadow-lg shadow-teal-700/25 flex items-center justify-center gap-1.5 active:scale-98 transition">
+                                class="flex-1 btn-primary-teal py-3 px-3 rounded-xl text-white font-bold text-xs flex items-center justify-center gap-1.5 transition">
                                 <span>Lanjutkan</span>
                                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
                             </button>
@@ -407,7 +433,7 @@
 
                         <div class="pt-2">
                             <button type="submit" id="btn-create-pin-submit" 
-                                class="btn-shimmer-teal w-full py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg shadow-teal-700/25 flex items-center justify-center gap-2 active:scale-98 transition duration-200">
+                                class="btn-primary-teal w-full py-3.5 px-4 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition duration-150">
                                 <i data-lucide="check" class="w-4 h-4"></i>
                                 <span>Simpan PIN & Masuk</span>
                             </button>
@@ -581,26 +607,26 @@
                     </div>
 
                     <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs shadow-inner">
-                        <div class="flex justify-between items-center">
-                            <span class="text-teal-200/90">Dokter DPJP:</span>
-                            <span id="kontrol-dokter-nama" class="font-extrabold text-white text-right truncate max-w-[190px]">-</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-teal-200/90 shrink-0">Dokter DPJP:</span>
+                            <span id="kontrol-dokter-nama" class="font-extrabold text-white text-right truncate min-w-0 flex-1">-</span>
                         </div>
-                        <div class="flex justify-between items-center pt-1.5 border-t border-white/10">
-                            <span class="text-teal-200/90">No. Surat Kontrol (SKDP):</span>
-                            <span id="kontrol-no-surat" class="font-mono font-black text-amber-300 text-right">-</span>
+                        <div class="flex justify-between items-center gap-2 pt-1.5 border-t border-white/10">
+                            <span class="text-teal-200/90 shrink-0">No. Surat Kontrol:</span>
+                            <span id="kontrol-no-surat" class="font-mono font-bold text-amber-300 text-right truncate min-w-0 flex-1">-</span>
                         </div>
-                        <div id="kontrol-catatan-box" class="pt-1.5 border-t border-white/10 text-[11px] text-teal-100/90 italic">
+                        <div id="kontrol-catatan-box" class="pt-1.5 border-t border-white/10 text-[11px] text-teal-100/90 italic break-words">
                             <span id="kontrol-catatan-text">-</span>
                         </div>
                     </div>
 
                     <!-- Aksi Ambil Antrean Instan / Status Antrean Sesuai SKDP -->
                     <div id="box-kontrol-action" class="pt-1 space-y-2">
-                        <!-- Tombol Ambil Antrean Instan dengan Gold Shimmer Kelas Atas -->
+                        <!-- Tombol Ambil Antrean Instan -->
                         <button id="btn-kontrol-ambil-antrean" onclick="openInstantSkdpBookingModal()" 
-                                class="btn-shimmer-gold w-full py-3.5 px-4 rounded-2xl text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 active:scale-95 transition duration-150 flex items-center justify-center gap-2">
+                                class="btn-primary-amber w-full py-3.5 px-4 rounded-xl text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition duration-150">
                             <i data-lucide="zap" class="w-4 h-4 text-slate-950 fill-slate-950"></i>
-                            <span class="tracking-wide">⚡ AMBIL ANTREAN SESUAI SKDP INI</span>
+                            <span class="tracking-wide">Ambil Antrean Sesuai SKDP</span>
                         </button>
 
                         <!-- Box Notifikasi Antrean Sudah Terbit -->
@@ -632,15 +658,15 @@
                 <div id="card-antrean-hari-ini" onclick="switchTab('antrean')" class="hidden rounded-3xl bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-4.5 shadow-xl shadow-slate-900/20 space-y-2.5 cursor-pointer active:scale-98 transition duration-150 border border-teal-500/25 relative overflow-hidden">
                     <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-teal-500/10 rounded-full blur-xl pointer-events-none"></div>
 
-                    <div class="flex justify-between items-center text-xs font-bold">
-                        <span class="flex items-center gap-2">
+                    <div class="flex justify-between items-center text-xs font-bold gap-2">
+                        <span class="flex items-center gap-2 shrink-0">
                             <span class="relative flex h-2.5 w-2.5">
                               <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                               <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
                             </span>
-                            <span id="antrean-card-title" class="font-extrabold tracking-wide uppercase text-[10px] text-teal-200">Antrean Poliklinik (Live Radar)</span>
+                            <span id="antrean-card-title" class="font-extrabold tracking-wide uppercase text-[10px] text-teal-200">Antrean Poli</span>
                         </span>
-                        <span id="antrean-poli-nama" class="truncate max-w-[160px] font-bold text-[11px] bg-white/15 px-2.5 py-0.5 rounded-full border border-white/10">Poli</span>
+                        <span id="antrean-poli-nama" class="truncate min-w-0 flex-1 text-right font-bold text-[11px] bg-white/15 px-2.5 py-0.5 rounded-full border border-white/10">Poli</span>
                     </div>
 
                     <div class="bg-white/95 text-slate-900 rounded-2xl p-3.5 flex justify-between items-center shadow-inner">
@@ -654,8 +680,8 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center justify-between text-[11px] text-teal-200/90 pt-1.5 border-t border-white/10">
-                        <span id="antrean-estimasi-info" class="font-medium truncate max-w-[240px]">Ketuk untuk detail QR APM & radar</span>
+                    <div class="flex items-center justify-between gap-2 text-[11px] text-teal-200/90 pt-1.5 border-t border-white/10">
+                        <span id="antrean-estimasi-info" class="font-medium truncate min-w-0 flex-1">Ketuk untuk detail QR APM & radar</span>
                         <div class="flex items-center gap-0.5 text-white font-bold shrink-0">
                             <span class="text-xs">Detail</span>
                             <i data-lucide="chevron-right" class="w-4 h-4 text-emerald-300"></i>
@@ -681,24 +707,24 @@
                     </div>
 
                     <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs shadow-inner">
-                        <div class="flex justify-between">
-                            <span class="text-teal-200/90">Dokter DPJP:</span>
-                            <span id="ranap-dpjp" class="font-extrabold text-right text-white truncate max-w-[200px]">-</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-teal-200/90 shrink-0">Dokter DPJP:</span>
+                            <span id="ranap-dpjp" class="font-extrabold text-right text-white truncate min-w-0 flex-1">-</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-teal-200/90">Tanggal Masuk:</span>
-                            <span id="ranap-tgl-masuk" class="font-medium text-white">-</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-teal-200/90 shrink-0">Tanggal Masuk:</span>
+                            <span id="ranap-tgl-masuk" class="font-medium text-white text-right truncate min-w-0 flex-1">-</span>
                         </div>
-                        <div class="flex justify-between border-t border-white/10 pt-2">
-                            <span class="text-teal-200/90">Estimasi Visite Dokter:</span>
-                            <span class="font-black text-emerald-300">08:30 - 13:00 WITA</span>
+                        <div class="flex justify-between items-center gap-2 border-t border-white/10 pt-2">
+                            <span class="text-teal-200/90 shrink-0">Estimasi Visite:</span>
+                            <span class="font-bold text-emerald-300 text-right">08:30 - 13:00 WITA</span>
                         </div>
                     </div>
 
                     <!-- Call Nurse Action -->
-                    <div class="mt-4 pt-3 border-t border-white/15 flex items-center justify-between">
-                        <span class="text-[11px] text-teal-100/80">Butuh bantuan segera di ruangan?</span>
-                        <button onclick="openModalCallNurse()" class="px-3.5 py-1.5 rounded-xl bg-white text-teal-900 font-extrabold text-xs shadow-md hover:bg-teal-50 active:scale-95 transition flex items-center gap-1.5">
+                    <div class="mt-4 pt-3 border-t border-white/15 flex items-center justify-between gap-2 flex-wrap">
+                        <span class="text-[11px] text-teal-100/80">Butuh bantuan di ruangan?</span>
+                        <button onclick="openModalCallNurse()" class="px-3.5 py-1.5 rounded-xl bg-white text-teal-900 font-bold text-xs shadow-md hover:bg-teal-50 active:scale-95 transition flex items-center gap-1.5 shrink-0">
                             <i data-lucide="bell" class="w-3.5 h-3.5 text-rose-600"></i>
                             <span>Panggil Perawat</span>
                         </button>
@@ -712,17 +738,17 @@
                         <span class="uppercase tracking-wider text-[10px]">PELAYANAN RAWAT JALAN TERAKHIR</span>
                     </div>
                     <div>
-                        <h3 id="rajal-poli-nama" class="text-lg font-black text-slate-900">Poliklinik Terpadu</h3>
+                        <h3 id="rajal-poli-nama" class="text-lg font-black text-slate-900 leading-snug">Poliklinik Terpadu</h3>
                         <p id="rajal-tgl-info" class="text-xs text-slate-500 mt-0.5">Kunjungan: -</p>
                     </div>
                     <div class="text-xs bg-slate-50/80 rounded-2xl p-3.5 text-slate-700 space-y-2 border border-slate-200/60">
-                        <div class="flex justify-between">
-                            <span class="text-slate-500 font-semibold">Dokter Pemeriksa:</span>
-                            <span id="rajal-dokter-nama" class="font-extrabold text-slate-900 text-right truncate max-w-[190px]">-</span>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-slate-500 font-semibold shrink-0">Dokter:</span>
+                            <span id="rajal-dokter-nama" class="font-bold text-slate-900 text-right truncate min-w-0 flex-1">-</span>
                         </div>
-                        <div class="flex justify-between items-start pt-2 border-t border-slate-200/60">
-                            <span class="text-slate-500 font-semibold shrink-0">Diagnosa Utama:</span>
-                            <span id="rajal-diagnosa-nama" class="font-extrabold text-teal-800 text-right truncate max-w-[200px]">-</span>
+                        <div class="flex justify-between items-start gap-2 pt-2 border-t border-slate-200/60">
+                            <span class="text-slate-500 font-semibold shrink-0">Diagnosa:</span>
+                            <span id="rajal-diagnosa-nama" class="font-bold text-teal-800 text-right break-words min-w-0 flex-1">-</span>
                         </div>
                     </div>
                 </div>
@@ -809,12 +835,12 @@
                         <span id="beranda-badge-penjamin" class="text-[10px] font-black px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200">BPJS / JKN</span>
                     </div>
 
-                    <div class="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 flex items-center justify-between">
-                        <div>
+                    <div class="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 flex items-center justify-between gap-2">
+                        <div class="min-w-0 flex-1">
                             <span class="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">Status Pembiayaan Pasien</span>
-                            <span id="beranda-biaya-status" class="text-xs font-black text-teal-800">Dijamin Penuh BPJS (Bebas Biaya)</span>
+                            <span id="beranda-biaya-status" class="text-xs font-black text-teal-800 truncate block">Dijamin Penuh BPJS (Bebas Biaya)</span>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right shrink-0">
                             <span class="text-[10px] text-slate-400 block font-medium">Kunjungan Terakhir</span>
                             <span id="beranda-biaya-total" class="text-xs font-black text-slate-900 font-mono">Rp -</span>
                         </div>
@@ -899,13 +925,13 @@
                     <!-- Banner Rekomendasi SKDP Aktif -->
                     <div id="banner-skdp-rekomendasi" class="hidden p-4 bg-gradient-to-r from-teal-800 to-emerald-700 text-white rounded-3xl shadow-sm space-y-2.5 border border-teal-600/50">
                         <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2.5">
+                            <div class="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div class="w-8 h-8 rounded-xl bg-amber-400 text-slate-900 flex items-center justify-center font-black shrink-0">
                                     <i data-lucide="sparkles" class="w-4 h-4 text-amber-950"></i>
                                 </div>
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <span class="text-[10px] font-bold text-teal-200 uppercase tracking-wider block">Surat Kontrol (SKDP) Aktif</span>
-                                    <h5 id="banner-skdp-info" class="text-xs font-black text-white leading-tight">Kontrol Poliklinik ...</h5>
+                                    <h5 id="banner-skdp-info" class="text-xs font-black text-white leading-tight truncate">Kontrol Poliklinik ...</h5>
                                 </div>
                             </div>
                             <button type="button" onclick="applySkdpToBookingForm()" class="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-[11px] shrink-0 active:scale-95 transition flex items-center gap-1 shadow">
@@ -989,12 +1015,12 @@
                             </div>
 
                             <div class="space-y-1">
-                                <div class="flex items-center justify-between">
-                                    <label class="block text-[11px] font-bold text-teal-900">Pilih Surat Rujukan / Surat Kontrol Pasien</label>
-                                    <span id="rujukan-live-status" class="text-[10px] text-teal-700 font-semibold"></span>
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-1">
+                                    <label class="block text-[11px] font-bold text-teal-900 leading-tight">Pilih Surat Rujukan / SKDP Pasien</label>
+                                    <span id="rujukan-live-status" class="text-[10px] text-teal-700 font-semibold leading-tight"></span>
                                 </div>
                                 <select id="form-booking-rujukan-select" onchange="onRujukanSelectChange()" 
-                                        class="w-full px-3 py-2 rounded-xl border border-teal-300 text-xs text-slate-800 bg-white font-medium">
+                                        class="w-full max-w-full px-3 py-2 rounded-xl border border-teal-300 text-xs text-slate-800 bg-white font-medium truncate block">
                                     <option value="">-- Tekan tombol Cari Rujukan atau pilih dari daftar --</option>
                                 </select>
                             </div>
@@ -1427,13 +1453,13 @@
                         <h4 id="instant-skdp-poli" class="text-sm font-black text-white leading-tight">Poliklinik</h4>
                         <p id="instant-skdp-tgl" class="text-xs text-teal-200 font-semibold mt-0.5">Rabu, 25 November 2026</p>
                     </div>
-                    <div class="border-t border-white/10 pt-2 flex justify-between items-center text-[11px]">
-                        <span class="text-teal-200/90">DPJP:</span>
-                        <span id="instant-skdp-dokter" class="font-extrabold text-white text-right truncate max-w-[180px]">-</span>
+                    <div class="border-t border-white/10 pt-2 flex justify-between items-center gap-2 text-[11px]">
+                        <span class="text-teal-200/90 shrink-0">DPJP:</span>
+                        <span id="instant-skdp-dokter" class="font-bold text-white text-right truncate min-w-0 flex-1">-</span>
                     </div>
-                    <div class="flex justify-between items-center text-[11px]">
-                        <span class="text-teal-200/90">No. SKDP:</span>
-                        <span id="instant-skdp-nosurat" class="font-mono font-black text-amber-300 text-right">-</span>
+                    <div class="flex justify-between items-center gap-2 text-[11px]">
+                        <span class="text-teal-200/90 shrink-0">No. SKDP:</span>
+                        <span id="instant-skdp-nosurat" class="font-mono font-bold text-amber-300 text-right truncate min-w-0 flex-1">-</span>
                     </div>
                 </div>
 
@@ -1464,7 +1490,7 @@
             <!-- Action buttons -->
             <div class="pt-2 border-t border-slate-100 space-y-2">
                 <button type="button" id="btn-submit-instant-skdp" onclick="submitInstantSkdpBooking()" 
-                        class="btn-shimmer-gold w-full py-3.5 text-slate-950 font-black text-xs rounded-2xl shadow-lg shadow-amber-500/25 active:scale-95 transition flex items-center justify-center gap-2">
+                        class="btn-primary-amber w-full py-3.5 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition">
                     <i data-lucide="check-circle" class="w-4 h-4 text-slate-950"></i>
                     <span>Ya, Ambil Antrean Kontrol</span>
                 </button>
@@ -1638,9 +1664,9 @@
             <!-- Code Value & Copy -->
             <div class="space-y-1">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">KODE / NOMOR RUJUKAN:</span>
-                <div class="flex items-center justify-center gap-2">
-                    <span id="qr-zoom-code-text" class="font-mono text-sm font-black text-slate-900 bg-slate-100 px-3 py-1 rounded-xl tracking-wider select-all truncate max-w-[240px]">-</span>
-                    <button type="button" onclick="copyTextToClipboard(document.getElementById('qr-zoom-code-text').innerText, 'Kode')" class="p-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 transition active:scale-95" title="Salin Kode">
+                <div class="flex items-center justify-center gap-2 max-w-full px-2">
+                    <span id="qr-zoom-code-text" class="font-mono text-xs sm:text-sm font-black text-slate-900 bg-slate-100 px-3 py-1.5 rounded-xl tracking-wider select-all break-all min-w-0">-</span>
+                    <button type="button" onclick="copyTextToClipboard(document.getElementById('qr-zoom-code-text').innerText, 'Kode')" class="p-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 transition active:scale-95 shrink-0" title="Salin Kode">
                         <i data-lucide="copy" class="w-4 h-4"></i>
                     </button>
                 </div>
@@ -1879,7 +1905,7 @@
                     <button type="button" onclick="closeModalChangePin()" class="w-1/3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
                         Batal
                     </button>
-                    <button type="submit" id="btn-modal-change-pin" class="flex-1 btn-shimmer-teal py-2.5 rounded-xl text-white text-xs font-bold shadow-md shadow-teal-700/20 flex items-center justify-center gap-1.5 transition">
+                    <button type="submit" id="btn-modal-change-pin" class="flex-1 btn-primary-teal py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition">
                         <span>Simpan PIN</span>
                     </button>
                 </div>
@@ -1926,7 +1952,7 @@
             </div>
 
             <div class="pt-1">
-                <button type="button" onclick="closeModalHelpPin()" class="w-full btn-shimmer-teal py-2.5 rounded-xl text-white text-xs font-bold shadow-md shadow-teal-700/20 flex items-center justify-center gap-1.5 transition">
+                <button type="button" onclick="closeModalHelpPin()" class="w-full btn-primary-teal py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 transition">
                     <span>Saya Mengerti</span>
                 </button>
             </div>
@@ -2854,7 +2880,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.15').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.16').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -3609,19 +3635,19 @@
 
                 html += `
                     <div class="py-2.5 flex items-start justify-between gap-3 text-xs">
-                        <div class="space-y-1">
+                        <div class="space-y-1 min-w-0 flex-1">
                             <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="border ${badgeColor} text-[10px] font-bold px-1.5 py-0.5 rounded">${item.TIPE_LAYANAN}</span>
-                                <span class="font-bold text-slate-900">${item.UNIT_LAYANAN}</span>
+                                <span class="border ${badgeColor} text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0">${item.TIPE_LAYANAN}</span>
+                                <span class="font-bold text-slate-900 break-words">${item.UNIT_LAYANAN}</span>
                                 ${item.is_gabungan ? `
-                                    <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 border border-indigo-200 text-indigo-700">Masuk via IGD</span>
+                                    <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 shrink-0">Masuk via IGD</span>
                                 ` : ''}
                             </div>
-                            <p class="text-[11px] text-slate-500">DPJP: ${item.DOKTER}</p>
+                            <p class="text-[11px] text-slate-500 truncate" title="DPJP: ${item.DOKTER}">DPJP: ${item.DOKTER}</p>
                             ${item.diagnosa_utama && item.diagnosa_utama !== '-' ? `
-                                <div class="inline-flex items-center gap-1 text-[11px] text-teal-900 font-semibold bg-teal-50/80 px-2 py-0.5 rounded-md border border-teal-100/90">
+                                <div class="inline-flex items-center gap-1 text-[11px] text-teal-900 font-semibold bg-teal-50/80 px-2 py-0.5 rounded-md border border-teal-100/90 max-w-full">
                                     <i data-lucide="stethoscope" class="w-3 h-3 text-teal-600 shrink-0"></i>
-                                    <span class="truncate max-w-[210px]">${item.diagnosa_utama}</span>
+                                    <span class="truncate-safe flex-1 min-w-0" title="${item.diagnosa_utama}">${item.diagnosa_utama}</span>
                                 </div>
                             ` : ''}
                             ${resumeBtn}
@@ -3714,42 +3740,43 @@
 
                     containerAktif.innerHTML = `
                         <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-200/80 space-y-4">
-                            <div class="flex justify-between items-start">
-                                <div>
+                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
                                     <span class="text-[10px] font-bold text-teal-600 uppercase tracking-wider block">TAGIHAN KUNJUNGAN TERAKHIR</span>
-                                    <h4 class="text-sm font-extrabold text-slate-900">${latest.ruangan}</h4>
+                                    <h4 class="text-sm font-extrabold text-slate-900 break-words">${latest.ruangan}</h4>
                                     ${latest.is_gabungan ? `
                                         <div class="mt-1">
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold">
-                                                <i data-lucide="layers" class="w-3 h-3"></i> Penggabungan Tagihan: ${latest.ruangan_gabungan}
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold max-w-full truncate">
+                                                <i data-lucide="layers" class="w-3 h-3 shrink-0"></i> 
+                                                <span class="truncate">Penggabungan Tagihan: ${latest.ruangan_gabungan}</span>
                                             </span>
                                         </div>
                                     ` : ''}
-                                    <p class="text-[11px] text-slate-500 mt-1">${latest.tanggal_indo} • DPJP: ${latest.dokter}</p>
+                                    <p class="text-[11px] text-slate-500 mt-1 break-words">${latest.tanggal_indo} • DPJP: ${latest.dokter}</p>
                                 </div>
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${latest.status_badge}">
+                                <span class="self-start text-[10px] font-bold px-2 py-0.5 rounded-full border ${latest.status_badge} shrink-0">
                                     ${latest.status_text}
                                 </span>
                             </div>
 
                             <div class="bg-teal-50/50 rounded-2xl p-4 border border-teal-100/80 space-y-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-xs text-slate-600 font-medium">Total Biaya RS:</span>
-                                    <span class="text-base font-black text-slate-900">${latest.total_formatted}</span>
+                                <div class="flex justify-between items-center gap-2">
+                                    <span class="text-xs text-slate-600 font-medium shrink-0">Total Biaya RS:</span>
+                                    <span class="text-base font-black text-slate-900 font-mono text-right truncate min-w-0 flex-1">${latest.total_formatted}</span>
                                 </div>
-                                <div class="flex justify-between items-center text-xs">
-                                    <span class="text-slate-500">Penjamin / Asuransi:</span>
-                                    <span class="font-bold text-teal-800">${latest.penjamin} (${latest.kelas_penjamin})</span>
+                                <div class="flex justify-between items-center gap-2 text-xs">
+                                    <span class="text-slate-500 shrink-0">Penjamin / Asuransi:</span>
+                                    <span class="font-bold text-teal-800 text-right truncate min-w-0 flex-1">${latest.penjamin} (${latest.kelas_penjamin})</span>
                                 </div>
                                 ${latest.no_sep && latest.no_sep !== '-' ? `
-                                    <div class="flex justify-between items-center text-[11px] text-slate-500">
-                                        <span>No. SEP BPJS:</span>
-                                        <span class="font-mono font-medium text-slate-700">${latest.no_sep}</span>
+                                    <div class="flex justify-between items-center gap-2 text-[11px] text-slate-500">
+                                        <span class="shrink-0">No. SEP BPJS:</span>
+                                        <span class="font-mono font-medium text-slate-700 text-right truncate min-w-0 flex-1">${latest.no_sep}</span>
                                     </div>
                                 ` : ''}
-                                <div class="pt-2 border-t border-teal-200/60 flex justify-between items-center">
-                                    <span class="text-xs font-bold text-teal-900">Biaya yang Dibayar Pasien:</span>
-                                    <span class="text-base font-black ${latest.biaya_pasien_num > 0 ? 'text-amber-700' : 'text-teal-700'}">${latest.biaya_pasien_formatted}</span>
+                                <div class="pt-2 border-t border-teal-200/60 flex justify-between items-center gap-2">
+                                    <span class="text-xs font-bold text-teal-900 shrink-0">Biaya yang Dibayar Pasien:</span>
+                                    <span class="text-base font-black text-right truncate min-w-0 flex-1 ${latest.biaya_pasien_num > 0 ? 'text-amber-700' : 'text-teal-700'}">${latest.biaya_pasien_formatted}</span>
                                 </div>
                             </div>
 
@@ -3799,18 +3826,18 @@
                         rHtml += `
                             <div class="pt-3 first:pt-0">
                                 <div onclick="toggleBillingAccordion('${accId}')" class="cursor-pointer flex justify-between items-start gap-2 hover:bg-slate-50 p-2 rounded-2xl transition">
-                                    <div class="space-y-0.5">
+                                    <div class="space-y-0.5 min-w-0 flex-1">
                                         <div class="flex items-center gap-1.5 flex-wrap">
-                                            <span class="font-bold text-xs text-slate-900">${b.ruangan}</span>
+                                            <span class="font-bold text-xs text-slate-900 break-words">${b.ruangan}</span>
                                             ${b.is_gabungan ? `
-                                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700">Gabungan</span>
+                                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 shrink-0">Gabungan</span>
                                             ` : ''}
-                                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded border ${b.status_badge}">${b.status_text}</span>
+                                            <span class="text-[10px] font-bold px-1.5 py-0.2 rounded border ${b.status_badge} shrink-0">${b.status_text}</span>
                                         </div>
-                                        <p class="text-[11px] text-slate-500">${b.tanggal_indo} • DPJP: ${b.dokter}</p>
+                                        <p class="text-[11px] text-slate-500 truncate">${b.tanggal_indo} • DPJP: ${b.dokter}</p>
                                     </div>
                                     <div class="text-right shrink-0">
-                                        <span class="block font-black text-xs text-slate-900">${b.total_formatted}</span>
+                                        <span class="block font-black text-xs text-slate-900 font-mono">${b.total_formatted}</span>
                                         <span class="text-[10px] text-teal-600 font-semibold flex items-center justify-end gap-1">
                                             Detail <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
                                         </span>
@@ -3909,12 +3936,12 @@
                     html += `
                         <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-200/80 space-y-3">
                             <div class="flex justify-between items-start gap-2">
-                                <div>
+                                <div class="min-w-0 flex-1">
                                     <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md">HASIL FINAL</span>
                                     <h4 class="text-xs font-bold text-slate-900 mt-1">${panel.tgl_indo}</h4>
-                                    <p class="text-[11px] text-slate-500">Pemeriksa: ${panel.dokter_lab}</p>
+                                    <p class="text-[11px] text-slate-500 truncate" title="Pemeriksa: ${panel.dokter_lab}">Pemeriksa: ${panel.dokter_lab}</p>
                                 </div>
-                                <button type="button" onclick="openPdfViewer('${getApiUrl(panel.download_pdf_url)}', 'Hasil Laboratorium', '${panel.tgl_indo} • ${panel.dokter_lab}')" class="px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95">
+                                <button type="button" onclick="openPdfViewer('${getApiUrl(panel.download_pdf_url)}', 'Hasil Laboratorium', '${panel.tgl_indo} • ${panel.dokter_lab}')" class="px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 shrink-0">
                                     <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
                                     <span>Lihat PDF</span>
                                 </button>
@@ -3975,7 +4002,7 @@
                         itemsHtml += `
                             <div class="bg-slate-50 rounded-2xl p-3 border border-slate-100 space-y-2 text-xs">
                                 <div class="flex justify-between items-start gap-2">
-                                    <h5 class="font-bold text-slate-900">${it.JENIS_PEMERIKSAAN || it.TINDAKAN_NAMA}</h5>
+                                    <h5 class="font-bold text-slate-900 min-w-0 flex-1 break-words">${it.JENIS_PEMERIKSAAN || it.TINDAKAN_NAMA}</h5>
                                     ${dlUrl ? `
                                         <button type="button" onclick="openPdfViewer('${getApiUrl(dlUrl)}', 'Hasil Radiologi', '${(it.JENIS_PEMERIKSAAN || it.TINDAKAN_NAMA).replace(/'/g, "\\'")}')" class="px-3 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition shrink-0 active:scale-95">
                                             <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
@@ -4354,25 +4381,25 @@
                             </div>
 
                             <div class="flex items-center justify-between gap-2 pt-1 flex-wrap">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/70 tracking-tight select-all" title="Nomor Dokumen">
+                                <div class="flex items-center gap-1.5 min-w-0 flex-1">
+                                    <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200/70 tracking-tight select-all truncate" title="Nomor Dokumen">
                                         ${item.nomor}
                                     </span>
                                     <button type="button" onclick="copyTextToClipboard('${copyNoTarget}', 'Nomor Surat')" 
-                                            class="p-1.5 rounded-xl text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition active:scale-95" title="Salin Nomor">
+                                            class="p-1.5 rounded-xl text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition active:scale-95 shrink-0" title="Salin Nomor">
                                         <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                                     </button>
                                 </div>
 
                                 ${item.is_skdp ? `
-                                    <div>
+                                    <div class="shrink-0">
                                         ${item.has_booking ? `
                                             <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-950 border border-emerald-300">
                                                 <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
                                                 <span>Antrean Terbit: ${item.nomor_antrian || item.nomor_booking}</span>
                                             </span>
                                         ` : (item.is_upcoming ? `
-                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-amber-50 text-amber-950 border border-amber-300">
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-xl bg-amber-400/20 text-amber-950 border border-amber-300">
                                                 <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i>
                                                 <span>${item.sisa_hari === 0 ? 'Kontrol Hari Ini' : item.sisa_hari + ' Hari Lagi'}</span>
                                             </span>
@@ -4402,26 +4429,26 @@
                         <div class="pt-1.5 flex items-center gap-2">
                             <!-- 1. Tombol Utama: Lihat PDF Resmi -->
                             <button type="button" onclick="openPdfViewer('${pdfActionUrl}', '${escapedTitle}', '${escapedSub}')"
-                                class="flex-1 py-2.5 px-3.5 rounded-xl bg-teal-700 hover:bg-teal-800 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition">
-                                <i data-lucide="file-text" class="w-4 h-4"></i>
-                                <span>Lihat PDF</span>
+                                class="flex-1 min-w-0 py-2.5 px-3 rounded-xl bg-teal-700 hover:bg-teal-800 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition">
+                                <i data-lucide="file-text" class="w-4 h-4 shrink-0"></i>
+                                <span class="truncate">Lihat PDF</span>
                             </button>
 
                             ${item.is_skdp ? `
                                 <!-- 2. Aksi Antrean: E-Tiket (QR Kode Booking APM) atau Ambil Antrean -->
                                 ${item.has_booking ? `
                                     <button type="button" onclick="lihatTiketDariSkdp('${item.nomor_booking}')"
-                                        class="flex-1 py-2.5 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-98 border border-emerald-300 text-emerald-950 font-bold text-xs flex items-center justify-center gap-1.5 transition" 
+                                        class="flex-1 min-w-0 py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:scale-98 border border-emerald-300 text-emerald-950 font-bold text-xs flex items-center justify-center gap-1.5 transition" 
                                         title="Buka E-Tiket untuk Scan QR Kode Booking di Mesin APM">
-                                        <i data-lucide="ticket" class="w-3.5 h-3.5 text-emerald-700"></i>
-                                        <span>Lihat E-Tiket</span>
+                                        <i data-lucide="ticket" class="w-3.5 h-3.5 text-emerald-700 shrink-0"></i>
+                                        <span class="truncate">Lihat E-Tiket</span>
                                     </button>
                                 ` : (item.is_upcoming ? `
                                     <button type="button" onclick="ambilAntreanDariSkdp('${item.id}')"
-                                        class="flex-1 py-2.5 px-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-98 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition"
+                                        class="flex-1 min-w-0 py-2.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-98 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-xs transition"
                                         title="Daftar & ambil antrean untuk mendapatkan kode booking APM">
-                                        <i data-lucide="calendar-plus" class="w-3.5 h-3.5 text-slate-950"></i>
-                                        <span>Ambil Antrean</span>
+                                        <i data-lucide="calendar-plus" class="w-3.5 h-3.5 text-slate-950 shrink-0"></i>
+                                        <span class="truncate">Ambil Antrean</span>
                                     </button>
                                 ` : '')}
                             ` : ''}
@@ -4892,7 +4919,7 @@
                             <h4 class="text-sm font-extrabold text-slate-900">Belum Ada Antrean Aktif</h4>
                             <p class="text-xs text-slate-500 max-w-xs mx-auto">Anda belum memiliki jadwal reservasi antrean poliklinik untuk hari ini atau hari mendatang.</p>
                         </div>
-                        <button onclick="switchAntreanSubtab('daftar')" class="btn-shimmer-teal py-3 px-6 rounded-2xl text-white font-extrabold text-xs inline-flex items-center gap-2 shadow-lg shadow-teal-700/25 transition active:scale-95">
+                        <button onclick="switchAntreanSubtab('daftar')" class="btn-primary-teal py-3 px-6 rounded-xl text-white font-bold text-xs inline-flex items-center gap-2 transition">
                             <i data-lucide="plus-circle" class="w-4 h-4"></i>
                             <span>Daftar / Booking Poliklinik Sekarang</span>
                         </button>
@@ -4990,18 +5017,18 @@
                     <div class="bg-white p-5 space-y-4">
                         <!-- Detail Dokter & Cara Bayar -->
                         <div class="bg-slate-50/90 rounded-2xl p-3.5 text-xs space-y-2 border border-slate-200/70">
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500 font-semibold">DPJP:</span>
-                                <strong class="text-slate-900 text-right truncate max-w-[200px] font-extrabold">${t.nama_dokter}</strong>
+                            <div class="flex justify-between items-center gap-2">
+                                <span class="text-slate-500 font-semibold shrink-0">DPJP:</span>
+                                <strong class="text-slate-900 text-right truncate min-w-0 flex-1 font-bold" title="${t.nama_dokter}">${t.nama_dokter}</strong>
                             </div>
-                            <div class="flex justify-between items-center pt-1.5 border-t border-slate-200/60">
-                                <span class="text-slate-500 font-semibold">Penjamin:</span>
-                                <span class="font-extrabold ${t.is_bpjs ? 'text-teal-700' : 'text-slate-800'}">${t.cara_bayar}</span>
+                            <div class="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/60">
+                                <span class="text-slate-500 font-semibold shrink-0">Penjamin:</span>
+                                <span class="font-bold text-right truncate min-w-0 flex-1 ${t.is_bpjs ? 'text-teal-700' : 'text-slate-800'}">${t.cara_bayar}</span>
                             </div>
                             ${t.is_bpjs && t.no_rujukan ? `
-                            <div class="flex justify-between items-center pt-1.5 border-t border-slate-200/60 text-[11px]">
-                                <span class="text-slate-500 font-semibold">No. Rujukan/SKDP:</span>
-                                <span class="font-mono font-bold text-teal-800">${t.no_rujukan}</span>
+                            <div class="flex justify-between items-center gap-2 pt-1.5 border-t border-slate-200/60 text-[11px]">
+                                <span class="text-slate-500 font-semibold shrink-0">No. Rujukan/SKDP:</span>
+                                <span class="font-mono font-bold text-teal-800 text-right truncate min-w-0 flex-1">${t.no_rujukan}</span>
                             </div>
                             ` : ''}
                         </div>
@@ -5071,10 +5098,10 @@
             list.forEach(t => {
                 html += `
                     <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200/80 flex justify-between items-center gap-2">
-                        <div class="space-y-0.5">
-                            <h5 class="text-xs font-bold text-slate-900">${t.nama_poli}</h5>
-                            <p class="text-[11px] text-slate-500">${t.hari}, ${t.tanggal_format} • DPJP: ${t.nama_dokter}</p>
-                            <span class="font-mono text-[10px] text-teal-700 font-bold">Poli #${t.no_antrian_poli} | Loket: ${t.no_antrian_loket}</span>
+                        <div class="space-y-0.5 min-w-0 flex-1">
+                            <h5 class="text-xs font-bold text-slate-900 truncate">${t.nama_poli}</h5>
+                            <p class="text-[11px] text-slate-500 truncate">${t.hari}, ${t.tanggal_format} • DPJP: ${t.nama_dokter}</p>
+                            <span class="font-mono text-[10px] text-teal-700 font-bold block truncate">Poli #${t.no_antrian_poli} | Loket: ${t.no_antrian_loket}</span>
                         </div>
                         <div class="flex items-center gap-1 shrink-0">
                             <button type="button" onclick="openQrZoomModal('${t.kode_booking}', 'QR Check-in APM Mandiri', '${t.nama_poli} • No. Antrean: ${t.no_antrian_poli || t.no_antrian_loket || '-'}', 'CHECK-IN APM')" 
@@ -5104,16 +5131,16 @@
                 html += `
                     <div class="p-3 rounded-2xl border ${isBatal ? 'bg-slate-50/70 border-slate-200 opacity-60' : 'bg-white border-slate-200/80'} space-y-1">
                         <div class="flex justify-between items-center gap-2">
-                            <span class="text-xs font-bold text-slate-900 truncate">${r.nama_poli}</span>
-                            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full ${r.status_badge}">${r.status_label}</span>
+                            <span class="text-xs font-bold text-slate-900 truncate min-w-0 flex-1">${r.nama_poli}</span>
+                            <span class="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${r.status_badge}">${r.status_label}</span>
                         </div>
-                        <div class="text-[11px] text-slate-500 flex justify-between items-center">
-                            <span>${r.hari}, ${r.tanggal_format}</span>
-                            <span class="font-mono text-slate-700 font-semibold">No. Poli: ${r.no_antrian_poli || '-'}</span>
+                        <div class="text-[11px] text-slate-500 flex justify-between items-center gap-2">
+                            <span class="truncate min-w-0 flex-1">${r.hari}, ${r.tanggal_format}</span>
+                            <span class="font-mono text-slate-700 font-semibold shrink-0">No. Poli: ${r.no_antrian_poli || '-'}</span>
                         </div>
-                        <div class="text-[10px] text-slate-400 pt-0.5 flex justify-between">
-                            <span>DPJP: ${r.nama_dokter}</span>
-                            <span>${r.cara_bayar}</span>
+                        <div class="text-[10px] text-slate-400 pt-0.5 flex justify-between items-center gap-2">
+                            <span class="truncate min-w-0 flex-1">DPJP: ${r.nama_dokter}</span>
+                            <span class="shrink-0 font-medium">${r.cara_bayar}</span>
                         </div>
                     </div>
                 `;

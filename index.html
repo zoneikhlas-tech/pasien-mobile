@@ -100,6 +100,32 @@
             box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
             border-radius: 1.5rem;
         }
+        .pin-dot {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .pin-dot.filled {
+            background-color: #0f766e;
+            border-color: #0f766e;
+            transform: scale(1.2);
+            box-shadow: 0 0 10px rgba(15, 118, 110, 0.45);
+        }
+        .pin-key {
+            transition: all 0.15s ease-out;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .pin-key:active {
+            transform: scale(0.92);
+            background-color: #e2e8f0;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        .shake-animation {
+            animation: shake 0.4s ease-in-out;
+        }
         .card-luxury-glow {
             box-shadow: 0 12px 30px -8px rgba(13, 148, 136, 0.18), 0 4px 12px -2px rgba(13, 148, 136, 0.08);
         }
@@ -192,7 +218,7 @@
                 <p class="text-xs text-slate-500 mt-1 leading-relaxed">Akses mudah informasi perawatan, transparansi rincian biaya & tagihan, dan hasil pemeriksaan medis resmi Anda.</p>
             </div>
 
-            <!-- Card Form Login (Luxury Frosted Glass Card) -->
+            <!-- Card Form Login (Luxury Smart Multi-Step Auth Card) -->
             <div class="card-luxury p-6 sm:p-7 shadow-xl shadow-teal-950/5 border border-white/60 space-y-4">
                 <!-- Alert Error -->
                 <div id="login-error" class="hidden p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
@@ -200,67 +226,198 @@
                     <span id="login-error-msg" class="leading-relaxed">Terjadi kesalahan.</span>
                 </div>
 
-                <form id="form-login" onsubmit="handleLoginSubmit(event)" class="space-y-4">
-                    <!-- Field 1: No RM atau NIK -->
-                    <div>
-                        <div class="flex justify-between items-center mb-1.5">
-                            <label class="text-xs font-bold text-slate-700">No. Rekam Medis (No. RM) atau NIK</label>
-                            <button type="button" onclick="openModalHelpRM()" class="text-[11px] font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1">
-                                <i data-lucide="help-circle" class="w-3 h-3"></i> Cek No. RM
+                <!-- Alert Info / Sukses -->
+                <div id="login-info" class="hidden p-3.5 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 text-xs flex items-start gap-2.5">
+                    <i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 shrink-0 text-teal-600"></i>
+                    <span id="login-info-msg" class="leading-relaxed">Informasi.</span>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- TAHAP 1: INPUT NO. RM / NIK PASIEN        -->
+                <!-- ========================================== -->
+                <div id="auth-step-identifier" class="space-y-4">
+                    <form onsubmit="handleIdentifierSubmit(event)" class="space-y-4">
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-xs font-bold text-slate-700">No. Rekam Medis (No. RM) atau NIK</label>
+                                <button type="button" onclick="openModalHelpRM()" class="text-[11px] font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1">
+                                    <i data-lucide="help-circle" class="w-3 h-3"></i> Cek No. RM
+                                </button>
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i data-lucide="credit-card" class="w-4 h-4"></i>
+                                </div>
+                                <input type="text" id="input-identifier" required inputmode="numeric" placeholder="Contoh: 18532 atau 16 digit NIK" 
+                                    class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1.5">Ketik nomor rekam medis RS atau 16 digit NIK e-KTP Anda.</p>
+                        </div>
+
+                        <!-- Checkbox Ingat No. RM -->
+                        <div class="flex items-center gap-2 pt-0.5">
+                            <input type="checkbox" id="check-remember-rm" class="w-4 h-4 rounded text-teal-600 border-slate-300 focus:ring-teal-500/30">
+                            <label for="check-remember-rm" class="text-xs text-slate-600 select-none cursor-pointer font-medium">Ingat No. RM di perangkat ini</label>
+                        </div>
+
+                        <div class="pt-1">
+                            <button type="submit" id="btn-identifier-submit" 
+                                class="btn-shimmer-teal w-full py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg shadow-teal-700/25 flex items-center justify-center gap-2 active:scale-98 transition duration-200">
+                                <span>Lanjutkan</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
                             </button>
                         </div>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                <i data-lucide="credit-card" class="w-4 h-4"></i>
-                            </div>
-                            <input type="text" id="input-identifier" required inputmode="numeric" placeholder="Contoh: 18532 atau 16 digit NIK" 
-                                class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
+                    </form>
+                </div>
+
+                <!-- ========================================== -->
+                <!-- TAHAP 2: KEYPAD 6-DIGIT PIN PASIEN        -->
+                <!-- ========================================== -->
+                <div id="auth-step-pin" class="hidden space-y-4 text-center">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-100 text-teal-800 text-xs font-bold">
+                            <i data-lucide="user-check" class="w-3.5 h-3.5 text-teal-600"></i>
+                            <span id="pin-patient-greeting">Halo, Pasien</span>
                         </div>
+                        <h3 class="text-base font-extrabold text-slate-900 pt-1">Masukkan 6-Digit PIN Anda</h3>
+                        <p class="text-xs text-slate-500">Ketik PIN rahasia Anda untuk akses cepat & aman.</p>
                     </div>
 
-                    <!-- Field 2: Tanggal Lahir -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Lahir Pasien</label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                <i data-lucide="calendar" class="w-4 h-4"></i>
-                            </div>
-                            <input type="date" id="input-dob" required 
-                                class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
-                        </div>
-                        <p class="text-[11px] text-slate-400 mt-1">Sesuai tanggal lahir yang tercatat di KTP / KK.</p>
+                    <!-- 6 PIN Dots Indicator -->
+                    <div id="pin-dots-container" class="flex justify-center items-center gap-3 py-3">
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="0"></div>
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="1"></div>
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="2"></div>
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="3"></div>
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="4"></div>
+                        <div class="pin-dot w-4 h-4 rounded-full border-2 border-slate-300 bg-white" data-index="5"></div>
                     </div>
 
-                    <!-- Field 3: 4 Digit Terakhir No. HP -->
-                    <div>
-                        <div class="flex justify-between items-center mb-1.5">
-                            <label class="text-xs font-bold text-slate-700">4 Digit Terakhir No. HP</label>
-                            <span class="text-[11px] text-slate-400 font-medium">Verifikasi Keamanan</span>
-                        </div>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                <i data-lucide="phone" class="w-4 h-4"></i>
-                            </div>
-                            <input type="tel" id="input-phone" maxlength="4" pattern="[0-9]*" placeholder="•••• 0719" 
-                                class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-mono font-bold tracking-wider text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
-                        </div>
-                        <p class="text-[11px] text-slate-400 mt-1">Masukkan 4 angka terakhir nomor handphone yang didaftarkan di RS.</p>
-                    </div>
-
-                    <!-- Submit Button with Shimmer Teal -->
-                    <div class="pt-2">
-                        <button type="submit" id="btn-login-submit" 
-                            class="btn-shimmer-teal w-full py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg shadow-teal-700/25 flex items-center justify-center gap-2 active:scale-98 transition duration-200">
-                            <span>Masuk ke Akun Saya</span>
-                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    <!-- Numeric Onscreen Keypad -->
+                    <div class="grid grid-cols-3 gap-2.5 max-w-[280px] mx-auto pt-1">
+                        <button type="button" onclick="appendPinDigit('1')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">1</button>
+                        <button type="button" onclick="appendPinDigit('2')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">2</button>
+                        <button type="button" onclick="appendPinDigit('3')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">3</button>
+                        <button type="button" onclick="appendPinDigit('4')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">4</button>
+                        <button type="button" onclick="appendPinDigit('5')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">5</button>
+                        <button type="button" onclick="appendPinDigit('6')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">6</button>
+                        <button type="button" onclick="appendPinDigit('7')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">7</button>
+                        <button type="button" onclick="appendPinDigit('8')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">8</button>
+                        <button type="button" onclick="appendPinDigit('9')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">9</button>
+                        <button type="button" onclick="clearPin()" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 text-xs font-extrabold flex items-center justify-center shadow-sm">HAPUS</button>
+                        <button type="button" onclick="appendPinDigit('0')" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xl font-bold flex items-center justify-center shadow-sm">0</button>
+                        <button type="button" onclick="backspacePin()" class="pin-key h-12 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center shadow-sm" title="Hapus satu angka">
+                            <i data-lucide="delete" class="w-5 h-5"></i>
                         </button>
                     </div>
-                </form>
+
+                    <!-- Action Links (Lupa PIN & Ganti Nomor RM) -->
+                    <div class="pt-3 border-t border-slate-100 flex flex-col items-center gap-2">
+                        <button type="button" onclick="startResetPinFlow()" class="text-xs font-bold text-teal-600 hover:text-teal-700 hover:underline">
+                            Lupa PIN? Verifikasi Data Identitas
+                        </button>
+                        <button type="button" onclick="switchAuthStep('identifier')" class="text-[11px] text-slate-400 hover:text-slate-600 flex items-center gap-1">
+                            <i data-lucide="arrow-left" class="w-3 h-3"></i> Gunakan No. RM Lain
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- TAHAP 3: VERIFIKASI IDENTITAS (AKTIVASI / LUPA PIN)      -->
+                <!-- ======================================================= -->
+                <div id="auth-step-verify" class="hidden space-y-4">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold">
+                            <i data-lucide="shield-alert" class="w-3.5 h-3.5 text-amber-600"></i>
+                            <span id="verify-step-badge">Verifikasi Identitas</span>
+                        </div>
+                        <h3 id="verify-step-title" class="text-base font-extrabold text-slate-900 pt-1">Verifikasi Data Rekam Medis</h3>
+                        <p id="verify-step-desc" class="text-xs text-slate-500 leading-relaxed">Untuk aktivasi PIN PasienKu, mohon verifikasi data pribadi Anda sesuai rekam medis rumah sakit.</p>
+                    </div>
+
+                    <form onsubmit="handleVerifyIdentitySubmit(event)" class="space-y-3.5">
+                        <!-- Field Tanggal Lahir -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1.5">Tanggal Lahir Pasien</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                                </div>
+                                <input type="date" id="input-dob" required 
+                                    class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1">Sesuai tanggal lahir yang tercatat di KTP / SIMGoS.</p>
+                        </div>
+
+                        <!-- Field 4 Digit Terakhir No. HP -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1.5">
+                                <label class="text-xs font-bold text-slate-700">4 Digit Terakhir No. HP</label>
+                                <span id="verify-phone-hint" class="text-[11px] text-slate-400 font-medium">Contoh: •••• 0719</span>
+                            </div>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                    <i data-lucide="phone" class="w-4 h-4"></i>
+                                </div>
+                                <input type="tel" id="input-phone" maxlength="4" pattern="[0-9]*" placeholder="•••• 0719" 
+                                    class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-mono font-bold tracking-wider text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-1">Masukkan 4 angka terakhir nomor HP yang terdaftar di RS.</p>
+                        </div>
+
+                        <div class="pt-2 flex gap-2">
+                            <button type="button" onclick="switchAuthStep('identifier')" class="w-1/3 py-3 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
+                                Kembali
+                            </button>
+                            <button type="submit" id="btn-verify-submit" 
+                                class="flex-1 btn-shimmer-teal py-3 px-3 rounded-2xl text-white font-extrabold text-xs shadow-lg shadow-teal-700/25 flex items-center justify-center gap-1.5 active:scale-98 transition">
+                                <span>Lanjutkan</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ======================================================= -->
+                <!-- TAHAP 4: BUAT 6-DIGIT PIN BARU                          -->
+                <!-- ======================================================= -->
+                <div id="auth-step-create-pin" class="hidden space-y-4">
+                    <div class="space-y-1">
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-bold">
+                            <i data-lucide="key-round" class="w-3.5 h-3.5 text-teal-600"></i>
+                            <span>Atur PIN Akses</span>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-900 pt-1">Buat 6-Digit PIN Anda</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed">Gunakan kombinasi 6 angka unik yang mudah Anda ingat. Hindari angka kembar (contoh: 111111) atau berurutan (contoh: 123456).</p>
+                    </div>
+
+                    <form onsubmit="handleCreatePinSubmit(event)" class="space-y-3.5">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Ketik 6-Digit PIN Baru</label>
+                            <input type="password" id="input-new-pin" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="••••••"
+                                class="w-full text-center py-3 rounded-xl border border-slate-200 text-lg font-mono font-bold tracking-widest text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Ulangi 6-Digit PIN Baru</label>
+                            <input type="password" id="input-confirm-pin" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="••••••"
+                                class="w-full text-center py-3 rounded-xl border border-slate-200 text-lg font-mono font-bold tracking-widest text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600">
+                        </div>
+
+                        <div class="pt-2">
+                            <button type="submit" id="btn-create-pin-submit" 
+                                class="btn-shimmer-teal w-full py-3.5 px-4 rounded-2xl text-white font-extrabold text-sm shadow-lg shadow-teal-700/25 flex items-center justify-center gap-2 active:scale-98 transition duration-200">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                                <span>Simpan PIN & Masuk</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
 
                 <!-- Info Keamanan Data SATUSEHAT & ISO -->
                 <div class="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2.5 text-[11px] text-slate-500">
                     <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
-                    <span>Terenkripsi & Terhubung dengan Rekam Medis Resmi Kemenkes SATUSEHAT.</span>
+                    <span>Terenkripsi Bcrypt & Terhubung dengan Rekam Medis Resmi Kemenkes SATUSEHAT.</span>
                 </div>
             </div>
         </div>
@@ -1105,6 +1262,28 @@
                     </div>
                 </div>
 
+                <!-- Keamanan Akses Akun (Ubah PIN) -->
+                <div class="card-luxury p-5 space-y-3 border border-slate-200/80">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-extrabold text-slate-900">Keamanan Akses Akun</h4>
+                                <p class="text-[11px] text-slate-500">Lindungi privasi rekam medis dengan 6 digit PIN</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="openModalChangePin()" class="w-full py-2.5 px-3.5 rounded-xl border border-teal-200 bg-teal-50/50 hover:bg-teal-100/60 text-teal-800 text-xs font-bold flex items-center justify-between transition active:scale-[0.99]">
+                        <span class="flex items-center gap-2">
+                            <i data-lucide="key-round" class="w-4 h-4 text-teal-600"></i>
+                            <span>Ubah 6-Digit PIN Anda</span>
+                        </span>
+                        <i data-lucide="chevron-right" class="w-4 h-4 text-teal-500"></i>
+                    </button>
+                </div>
+
                 <!-- Developer & System Credit -->
                 <div class="pt-2 pb-6 text-center space-y-1">
                     <p class="text-xs font-bold text-slate-700">PasienKu • SIMGOS 2</p>
@@ -1649,6 +1828,61 @@
                 <strong id="bed-updated-time" class="text-slate-600">-</strong>
                 <span class="block text-[9px] text-slate-400 mt-0.5">Sesuai transparansi informasi SIRANAP Kemenkes RI & BPJS Kesehatan</span>
             </div>
+        </div>
+    </div>
+
+    <!-- ============================================================== -->
+    <!-- MODAL UBAH 6-DIGIT PIN PASIEN                                   -->
+    <!-- ============================================================== -->
+    <div id="modal-change-pin" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                        <i data-lucide="key-round" class="w-4 h-4"></i>
+                    </div>
+                    <h3 class="text-sm font-extrabold text-slate-900">Ubah 6-Digit PIN</h3>
+                </div>
+                <button type="button" onclick="closeModalChangePin()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div id="modal-change-pin-error" class="hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-rose-600 mt-0.5"></i>
+                <span id="modal-change-pin-error-msg">Terjadi kesalahan.</span>
+            </div>
+
+            <div id="modal-change-pin-success" class="hidden p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0 text-emerald-600 mt-0.5"></i>
+                <span id="modal-change-pin-success-msg">PIN berhasil diubah.</span>
+            </div>
+
+            <form onsubmit="handleChangePinSubmit(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">PIN Lama (6 Angka)</label>
+                    <input type="password" id="input-old-pin" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="••••••"
+                        class="w-full text-center py-2.5 rounded-xl border border-slate-200 text-base font-mono font-bold tracking-widest text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">PIN Baru (6 Angka)</label>
+                    <input type="password" id="input-new-pin-modal" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="••••••"
+                        class="w-full text-center py-2.5 rounded-xl border border-slate-200 text-base font-mono font-bold tracking-widest text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Konfirmasi Ulang PIN Baru</label>
+                    <input type="password" id="input-confirm-pin-modal" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" required placeholder="••••••"
+                        class="w-full text-center py-2.5 rounded-xl border border-slate-200 text-base font-mono font-bold tracking-widest text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600">
+                </div>
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeModalChangePin()" class="w-1/3 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition">
+                        Batal
+                    </button>
+                    <button type="submit" id="btn-modal-change-pin" class="flex-1 btn-shimmer-teal py-2.5 rounded-xl text-white text-xs font-bold shadow-md shadow-teal-700/20 flex items-center justify-center gap-1.5 transition">
+                        <span>Simpan PIN</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -2573,11 +2807,36 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.7').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.8').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
         }
+
+        // State Alur Autentikasi Modern (PIN & Identitas Rekam Medis)
+        const authFlowState = {
+            identifier: '',
+            norm: null,
+            nama: '',
+            has_pin: false,
+            phone_hint: '',
+            pin: '',
+            pinBusy: false,
+            resetMode: false
+        };
+
+        // Event listener hardware keyboard untuk keypad PIN
+        window.addEventListener('keydown', (e) => {
+            const pinStep = document.getElementById('auth-step-pin');
+            if (!pinStep || pinStep.classList.contains('hidden')) return;
+            if (e.key >= '0' && e.key <= '9') {
+                appendPinDigit(e.key);
+            } else if (e.key === 'Backspace') {
+                backspacePin();
+            } else if (e.key === 'Escape') {
+                clearPin();
+            }
+        });
 
         // 1. Cek Sesi Login Pasien Saat Halaman Dibuka
         async function checkPatientSession() {
@@ -2595,85 +2854,302 @@
         }
 
         function showLogin() {
+            authFlowState.pin = '';
+            authFlowState.pinBusy = false;
+            updatePinDots();
+
+            // Cek No RM tersimpan di perangkat (Remember Me)
+            const savedIdentifier = localStorage.getItem('pasienku_saved_identifier');
+            const idInput = document.getElementById('input-identifier');
+            const rememberCheck = document.getElementById('check-remember-rm');
+            if (savedIdentifier && idInput) {
+                idInput.value = savedIdentifier;
+                if (rememberCheck) rememberCheck.checked = true;
+            }
+
+            switchAuthStep('identifier');
             document.getElementById('view-login').classList.remove('hidden');
             document.getElementById('view-dashboard').classList.add('hidden');
             lucide.createIcons();
         }
 
-        function showDashboard(userData) {
-            currentUser = userData;
-            document.getElementById('view-login').classList.add('hidden');
-            document.getElementById('view-dashboard').classList.remove('hidden');
+        function switchAuthStep(step) {
+            const steps = ['identifier', 'pin', 'verify', 'create-pin'];
+            steps.forEach(s => {
+                const el = document.getElementById('auth-step-' + s);
+                if (el) {
+                    if (s === step) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
 
-            const patientName = userData.nama || 'Pasien';
+            const errBox = document.getElementById('login-error');
+            const infoBox = document.getElementById('login-info');
+            if (errBox) errBox.classList.add('hidden');
+            if (infoBox) infoBox.classList.add('hidden');
 
-            // Set Header & Profil
-            document.getElementById('top-patient-name').textContent = patientName;
-            document.getElementById('badge-top-rm').textContent = 'RM: ' + (userData.norm_formatted || userData.norm);
-
-            // Set Avatar Initials
-            const avatarInitialEl = document.getElementById('top-avatar-initial');
-            if (avatarInitialEl) {
-                const parts = patientName.trim().split(/\s+/);
-                const initials = (parts[0]?.[0] || 'P') + (parts[1]?.[0] || '');
-                avatarInitialEl.textContent = initials.toUpperCase();
+            if (step === 'pin') {
+                authFlowState.pin = '';
+                authFlowState.pinBusy = false;
+                updatePinDots();
+            } else if (step === 'create-pin') {
+                const p1 = document.getElementById('input-new-pin');
+                const p2 = document.getElementById('input-confirm-pin');
+                if (p1) p1.value = '';
+                if (p2) p2.value = '';
             }
 
-            // Set Dynamic Greeting & Today's Date
-            const hour = new Date().getHours();
-            let greetingTime = 'Pagi';
-            if (hour >= 11 && hour < 15) greetingTime = 'Siang';
-            else if (hour >= 15 && hour < 18) greetingTime = 'Sore';
-            else if (hour >= 18 || hour < 4) greetingTime = 'Malam';
-
-            const greetTimeEl = document.getElementById('home-greeting-time');
-            if (greetTimeEl) greetTimeEl.textContent = 'Selamat ' + greetingTime + ',';
-
-            const greetNameEl = document.getElementById('home-greeting-name');
-            if (greetNameEl) {
-                const firstName = patientName.trim().split(/\s+/)[0];
-                greetNameEl.textContent = firstName + ' 👋';
-            }
-
-            const dateTodayEl = document.getElementById('home-date-today');
-            if (dateTodayEl) {
-                const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
-                const formattedDate = new Date().toLocaleDateString('id-ID', options);
-                dateTodayEl.textContent = formattedDate + ' • Terverifikasi';
-            }
-
-            // Render Kartu Pasien
-            renderDigitalCard(userData);
-
-            // Muat Data Dashboard
-            loadDashboardSummary();
             lucide.createIcons();
         }
 
-        // 2. Submit Form Login Pasien
-        async function handleLoginSubmit(e) {
-            e.preventDefault();
-            const btn = document.getElementById('btn-login-submit');
+        function showLoginError(msg) {
             const errBox = document.getElementById('login-error');
             const errMsg = document.getElementById('login-error-msg');
+            const infoBox = document.getElementById('login-info');
+            if (infoBox) infoBox.classList.add('hidden');
+            if (errMsg) errMsg.textContent = msg || 'Terjadi kesalahan.';
+            if (errBox) errBox.classList.remove('hidden');
+            lucide.createIcons();
+        }
 
-            errBox.classList.add('hidden');
+        function showLoginInfo(msg) {
+            const errBox = document.getElementById('login-error');
+            const infoBox = document.getElementById('login-info');
+            const infoMsg = document.getElementById('login-info-msg');
+            if (errBox) errBox.classList.add('hidden');
+            if (infoMsg) infoMsg.textContent = msg || '';
+            if (infoBox) infoBox.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        // Tahap 1: Submit No. RM / NIK
+        async function handleIdentifierSubmit(e) {
+            e.preventDefault();
+            const idInput = document.getElementById('input-identifier');
+            const rememberCheck = document.getElementById('check-remember-rm');
+            const val = idInput ? idInput.value.trim() : '';
+            if (!val) return;
+
+            if (rememberCheck && rememberCheck.checked) {
+                localStorage.setItem('pasienku_saved_identifier', val);
+            } else {
+                localStorage.removeItem('pasienku_saved_identifier');
+            }
+
+            const btn = document.getElementById('btn-identifier-submit');
             btn.disabled = true;
-            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Memverifikasi Identitas...</span>`;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Memeriksa Akun...</span>`;
             lucide.createIcons();
 
-            const identifier = document.getElementById('input-identifier').value.trim();
-            const dob = document.getElementById('input-dob').value.trim();
-            const lastPhone = document.getElementById('input-phone').value.trim();
-
             try {
-                const res = await fetch(getApiUrl('auth.php?action=login'), {
+                const res = await fetch(getApiUrl('auth.php?action=check_identifier'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: val })
+                });
+
+                const json = await res.json();
+
+                if (!json.success) {
+                    showLoginError(json.message || 'Nomor Rekam Medis atau NIK tidak ditemukan.');
+                    return;
+                }
+
+                const d = json.data;
+                authFlowState.identifier = val;
+                authFlowState.norm = d.norm;
+                authFlowState.nama = d.nama;
+                authFlowState.has_pin = d.has_pin;
+                authFlowState.phone_hint = d.phone_hint || '';
+
+                if (d.is_locked) {
+                    showLoginError(`Akun Anda terkunci sementara hingga ${d.locked_until || '15 menit ke depan'} karena salah memasukkan PIN berulang kali. Silakan coba lagi nanti.`);
+                    return;
+                }
+
+                if (d.has_pin) {
+                    const greetEl = document.getElementById('pin-patient-greeting');
+                    if (greetEl) {
+                        greetEl.textContent = 'Halo, ' + (d.nama_display || d.nama || 'Pasien');
+                    }
+                    switchAuthStep('pin');
+                } else {
+                    // Pasien baru belum memiliki PIN -> Alur Aktivasi
+                    authFlowState.resetMode = false;
+                    const badgeEl = document.getElementById('verify-step-badge');
+                    const titleEl = document.getElementById('verify-step-title');
+                    const descEl  = document.getElementById('verify-step-desc');
+                    const hintEl  = document.getElementById('verify-phone-hint');
+
+                    if (badgeEl) badgeEl.textContent = 'Aktivasi PIN';
+                    if (titleEl) titleEl.textContent = 'Aktivasi 6-Digit PIN PasienKu';
+                    if (descEl)  descEl.textContent  = 'Nomor Rekam Medis Anda belum memiliki PIN. Verifikasi identitas Anda untuk mengamankan rekam medis.';
+                    if (hintEl)  hintEl.textContent  = d.phone_hint ? 'Format terdaftar: ' + d.phone_hint : 'Contoh: •••• 0719';
+
+                    switchAuthStep('verify');
+                }
+            } catch (err) {
+                showLoginError('Gagal terhubung ke server rumah sakit. Periksa jaringan Anda.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Lanjutkan</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        // Tahap 2: Logika Keypad & Input PIN
+        function appendPinDigit(d) {
+            if (authFlowState.pinBusy || authFlowState.pin.length >= 6) return;
+            authFlowState.pin += String(d);
+            updatePinDots();
+            if (authFlowState.pin.length === 6) {
+                submitPinLogin(authFlowState.pin);
+            }
+        }
+
+        function backspacePin() {
+            if (authFlowState.pinBusy || authFlowState.pin.length === 0) return;
+            authFlowState.pin = authFlowState.pin.slice(0, -1);
+            updatePinDots();
+        }
+
+        function clearPin() {
+            if (authFlowState.pinBusy) return;
+            authFlowState.pin = '';
+            updatePinDots();
+        }
+
+        function updatePinDots() {
+            const dots = document.querySelectorAll('#pin-dots-container .pin-dot');
+            dots.forEach((dot, idx) => {
+                if (idx < authFlowState.pin.length) {
+                    dot.classList.add('filled');
+                } else {
+                    dot.classList.remove('filled');
+                }
+            });
+        }
+
+        async function submitPinLogin(pin) {
+            authFlowState.pinBusy = true;
+            try {
+                const res = await fetch(getApiUrl('auth.php?action=login_pin'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        identifier: identifier,
+                        norm: authFlowState.norm,
+                        pin: pin
+                    })
+                });
+
+                const json = await res.json();
+
+                if (json.success && json.data) {
+                    authFlowState.pin = '';
+                    updatePinDots();
+                    showDashboard(json.data);
+                } else {
+                    const dotBox = document.getElementById('pin-dots-container');
+                    if (dotBox) {
+                        dotBox.classList.add('shake-animation');
+                        setTimeout(() => dotBox.classList.remove('shake-animation'), 450);
+                    }
+                    authFlowState.pin = '';
+                    updatePinDots();
+                    showLoginError(json.message || 'PIN yang Anda masukkan tidak sesuai.');
+                }
+            } catch (e) {
+                authFlowState.pin = '';
+                updatePinDots();
+                showLoginError('Gagal memverifikasi PIN. Silakan periksa koneksi internet Anda.');
+            } finally {
+                authFlowState.pinBusy = false;
+            }
+        }
+
+        // Tahap 3: Verifikasi Identitas (Aktivasi / Reset Lupa PIN)
+        function startResetPinFlow() {
+            authFlowState.resetMode = true;
+            const badgeEl = document.getElementById('verify-step-badge');
+            const titleEl = document.getElementById('verify-step-title');
+            const descEl  = document.getElementById('verify-step-desc');
+            const hintEl  = document.getElementById('verify-phone-hint');
+
+            if (badgeEl) badgeEl.textContent = 'Lupa PIN Pasien';
+            if (titleEl) titleEl.textContent = 'Reset 6-Digit PIN Anda';
+            if (descEl)  descEl.textContent  = 'Masukkan Tanggal Lahir dan 4 digit terakhir nomor HP Anda yang terdaftar di RS untuk mereset PIN.';
+            if (hintEl && authFlowState.phone_hint) {
+                hintEl.textContent = 'Format terdaftar: ' + authFlowState.phone_hint;
+            }
+
+            switchAuthStep('verify');
+        }
+
+        async function handleVerifyIdentitySubmit(e) {
+            e.preventDefault();
+            const dob = document.getElementById('input-dob').value.trim();
+            const phone = document.getElementById('input-phone').value.trim();
+            const btn = document.getElementById('btn-verify-submit');
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Memverifikasi...</span>`;
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(getApiUrl('auth.php?action=verify_identity'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        identifier: authFlowState.norm || authFlowState.identifier || document.getElementById('input-identifier').value.trim(),
                         tgl_lahir: dob,
-                        last_phone: lastPhone
+                        last_phone: phone
+                    })
+                });
+
+                const json = await res.json();
+
+                if (json.success) {
+                    showLoginInfo('Identitas terverifikasi resmi! Silakan buat 6-digit PIN baru Anda.');
+                    switchAuthStep('create-pin');
+                } else {
+                    showLoginError(json.message || 'Verifikasi data gagal. Periksa tanggal lahir dan nomor HP.');
+                }
+            } catch (err) {
+                showLoginError('Gagal menghubungi server. Periksa koneksi internet Anda.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<span>Lanjutkan</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        // Tahap 4: Simpan 6-Digit PIN Baru
+        async function handleCreatePinSubmit(e) {
+            e.preventDefault();
+            const p1 = document.getElementById('input-new-pin').value.trim();
+            const p2 = document.getElementById('input-confirm-pin').value.trim();
+
+            if (p1.length !== 6 || !/^\d{6}$/.test(p1)) {
+                showLoginError('PIN harus berupa 6 angka rahasia.');
+                return;
+            }
+            if (p1 !== p2) {
+                showLoginError('Konfirmasi PIN tidak cocok dengan PIN baru.');
+                return;
+            }
+
+            const btn = document.getElementById('btn-create-pin-submit');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Menyimpan PIN...</span>`;
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(getApiUrl('auth.php?action=set_pin'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pin: p1,
+                        confirm_pin: p2
                     })
                 });
 
@@ -2682,17 +3158,101 @@
                 if (json.success && json.data) {
                     showDashboard(json.data);
                 } else {
-                    errBox.classList.remove('hidden');
-                    errMsg.textContent = json.message || 'Verifikasi gagal. Silakan periksa kembali data Anda.';
-                    lucide.createIcons();
+                    showLoginError(json.message || 'Gagal menyimpan PIN baru.');
                 }
             } catch (err) {
+                showLoginError('Gagal menyimpan PIN ke server. Silakan coba kembali.');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Simpan PIN & Masuk</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        // Modal Ubah PIN dari Tab Profil
+        function openModalChangePin() {
+            const pOld = document.getElementById('input-old-pin');
+            const pNew = document.getElementById('input-new-pin-modal');
+            const pConf = document.getElementById('input-confirm-pin-modal');
+            if (pOld) pOld.value = '';
+            if (pNew) pNew.value = '';
+            if (pConf) pConf.value = '';
+
+            const errBox = document.getElementById('modal-change-pin-error');
+            const succBox = document.getElementById('modal-change-pin-success');
+            if (errBox) errBox.classList.add('hidden');
+            if (succBox) succBox.classList.add('hidden');
+
+            document.getElementById('modal-change-pin').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeModalChangePin() {
+            document.getElementById('modal-change-pin').classList.add('hidden');
+        }
+
+        async function handleChangePinSubmit(e) {
+            e.preventDefault();
+            const oldPin = document.getElementById('input-old-pin').value.trim();
+            const newPin = document.getElementById('input-new-pin-modal').value.trim();
+            const confirmPin = document.getElementById('input-confirm-pin-modal').value.trim();
+
+            const errBox = document.getElementById('modal-change-pin-error');
+            const errMsg = document.getElementById('modal-change-pin-error-msg');
+            const succBox = document.getElementById('modal-change-pin-success');
+            const succMsg = document.getElementById('modal-change-pin-success-msg');
+            const btn = document.getElementById('btn-modal-change-pin');
+
+            errBox.classList.add('hidden');
+            succBox.classList.add('hidden');
+
+            if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
                 errBox.classList.remove('hidden');
-                errMsg.textContent = 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
+                errMsg.textContent = 'PIN baru harus terdiri dari 6 angka.';
+                return;
+            }
+            if (newPin !== confirmPin) {
+                errBox.classList.remove('hidden');
+                errMsg.textContent = 'Konfirmasi PIN baru tidak cocok.';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> <span>Menyimpan...</span>`;
+            lucide.createIcons();
+
+            try {
+                const res = await fetch(getApiUrl('auth.php?action=change_pin'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        old_pin: oldPin,
+                        new_pin: newPin,
+                        confirm_new_pin: confirmPin
+                    })
+                });
+
+                const json = await res.json();
+
+                if (json.success) {
+                    succBox.classList.remove('hidden');
+                    succMsg.textContent = json.message || 'PIN Anda berhasil diperbarui!';
+                    lucide.createIcons();
+                    setTimeout(() => {
+                        closeModalChangePin();
+                    }, 1500);
+                } else {
+                    errBox.classList.remove('hidden');
+                    errMsg.textContent = json.message || 'Gagal mengubah PIN.';
+                    lucide.createIcons();
+                }
+            } catch (e) {
+                errBox.classList.remove('hidden');
+                errMsg.textContent = 'Gagal terhubung ke server.';
                 lucide.createIcons();
             } finally {
                 btn.disabled = false;
-                btn.innerHTML = `<span>Masuk ke Akun Saya</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                btn.innerHTML = `<span>Simpan PIN</span>`;
                 lucide.createIcons();
             }
         }

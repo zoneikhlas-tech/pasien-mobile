@@ -1,87 +1,58 @@
 <?php
 /**
- * Portal Pasien - RSUP dr. Ben Mboi Kupang
- * API Autentikasi Pasien (Solusi 1: Verifikasi 3 Data Identitas Rahasia)
- * No. RM / NIK + Tanggal Lahir + 4 Digit Terakhir No. HP
+ * ==============================================================================
+ * Portal Pasien (PasienKu) - SIMGOS 2
+ * API Autentikasi Modern: PIN 6-Digit (Bcrypt) + Verifikasi Identitas Rekam Medis
+ * ==============================================================================
+ * Pengembang: Suriyandi (SIRS RSUP dr. Ben Mboi Kupang)
  */
 
 require_once __DIR__ . '/../config.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? 'check';
+$input  = json_decode(file_get_contents('php://input'), true) ?: $_POST;
 
-if ($action === 'login') {
-    $input = json_decode(file_get_contents('php://input'), true) ?: $_POST;
-
-    $identifier = trim((string)($input['identifier'] ?? ''));
-    $tglLahirInput = trim((string)($input['tgl_lahir'] ?? ''));
-    $lastPhoneInput = trim((string)($input['last_phone'] ?? ''));
-
-    if (empty($identifier)) {
-        PasienConfig::jsonResponse([
-            'success' => false,
-            'message' => 'Silakan masukkan No. Rekam Medis (No. RM) atau 16 Digit NIK Anda.'
-        ], 400);
-    }
-
-    if (empty($tglLahirInput)) {
-        PasienConfig::jsonResponse([
-            'success' => false,
-            'message' => 'Silakan pilih Tanggal Lahir sesuai KTP / Kartu Berobat.'
-        ], 400);
-    }
-
-    // Normalisasi Tanggal Lahir ke YYYY-MM-DD (Mendukung format ISO YYYY-MM-DD maupun DD-MM-YYYY / MM-DD-YYYY)
-    $dobParsed = null;
-    $dobAltParsed = null;
-    $cleanDob = trim($tglLahirInput);
-    if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/', $cleanDob, $m)) {
-        // Format ISO standard HTML5 datepicker: YYYY-MM-DD
-        $dobParsed = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
-    } elseif (preg_match('/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/', $cleanDob, $m)) {
-        // Jika format 3 blok angka dengan tahun di belakang
-        $part1 = (int)$m[1];
-        $part2 = (int)$m[2];
-        $year  = (int)$m[3];
-
-        if ($part1 > 12) {
-            // Pasti DD-MM-YYYY
-            $dobParsed = sprintf('%04d-%02d-%02d', $year, $part2, $part1);
-        } elseif ($part2 > 12) {
-            // Pasti MM-DD-YYYY
-            $dobParsed = sprintf('%04d-%02d-%02d', $year, $part1, $part2);
-        } else {
-            // Kedua angka <= 12 (ambigu): siapkan opsi utama DD-MM-YYYY dan opsi alternatif MM-DD-YYYY
-            $dobParsed    = sprintf('%04d-%02d-%02d', $year, $part2, $part1); // Standar Indonesia: DD-MM-YYYY
-            $dobAltParsed = sprintf('%04d-%02d-%02d', $year, $part1, $part2); // Standar US: MM-DD-YYYY
-        }
-    } else {
-        $t = strtotime($cleanDob);
-        if ($t && $t > 0) {
-            $dobParsed = date('Y-m-d', $t);
-        }
-    }
-
-    if (!$dobParsed || $dobParsed === '1970-01-01') {
-        PasienConfig::jsonResponse([
-            'success' => false,
-            'message' => 'Format Tanggal Lahir tidak valid.'
-        ], 400);
-    }
-
-    $pdoMaster = PasienConfig::getConnection('master');
-    if ($pdoMaster === null) {
-        PasienConfig::jsonResponse([
-            'success' => false,
-            'message' => 'Gagal terhubung ke database server rumah sakit. Coba beberapa saat lagi.'
-        ], 500);
-    }
+/**
+ * Memastikan tabel regonline.pasien_auth tersedia secara otomatis
+ */
+function ensurePasienAuthTable($pdoReg) {
+    if (!$pdoReg) return false;
+    static $ensured = false;
+    if ($ensured) return true;
 
     try {
-        $norm = null;
-        $cleanId = preg_replace('/[^0-9]/', '', $identifier);
+        $pdoReg->exec("
+            CREATE TABLE IF NOT EXISTS regonline.pasien_auth (
+                NORM INT NOT NULL,
+                PIN_HASH VARCHAR(255) NOT NULL,
+                SALAH_INPUT INT NOT NULL DEFAULT 0,
+                TERKUNCI_HINGGA DATETIME NULL,
+                TERAKHIR_LOGIN DATETIME NULL,
+                DIBUAT_TANGGAL DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                DIPERBARUI_TANGGAL DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (NORM),
+                INDEX idx_terkunci (TERKUNCI_HINGGA)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $ensured = true;
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
 
-        // 1. Cek apakah identifier adalah 16 Digit NIK
-        if (strlen($cleanId) === 16) {
+/**
+ * Mencari data pasien dan NORM berdasarkan No. RM atau 16 Digit NIK
+ */
+function findPatientByIdentifier($identifier, $pdoMaster) {
+    $cleanId = preg_replace('/[^0-9]/', '', (string)$identifier);
+    if (empty($cleanId)) return null;
+
+    $norm = null;
+
+    // 1. Jika 16 Digit, cek kartu identitas KTP
+    if (strlen($cleanId) === 16) {
+        try {
             $stmtNik = $pdoMaster->prepare("
                 SELECT NORM 
                 FROM master.kartu_identitas_pasien 
@@ -94,106 +65,56 @@ if ($action === 'login') {
             if ($rowNik && !empty($rowNik['NORM'])) {
                 $norm = (int)$rowNik['NORM'];
             }
-        }
+        } catch (Exception $e) {}
+    }
 
-        // 2. Jika bukan NIK atau NIK belum terdaftar, coba sebagai No. RM (NORM)
-        if (!$norm) {
-            $norm = (int)ltrim($cleanId, '0');
-        }
+    // 2. Jika bukan NIK atau belum ketemu, gunakan sebagai NORM
+    if (!$norm) {
+        $norm = (int)ltrim($cleanId, '0');
+    }
 
-        if (!$norm) {
-            PasienConfig::jsonResponse([
-                'success' => false,
-                'message' => 'Format No. RM atau NIK tidak valid.'
-            ], 400);
-        }
+    if (!$norm) return null;
 
-        // 3. Ambil data pasien dari master.pasien
-        $stmtPasien = $pdoMaster->prepare("
-            SELECT 
-                p.NORM,
-                p.NAMA,
-                DATE(p.TANGGAL_LAHIR) AS TGL_LAHIR,
-                p.TEMPAT_LAHIR,
-                p.JENIS_KELAMIN,
-                COALESCE(p.ALAMAT, '-') AS ALAMAT,
-                p.GOLONGAN_DARAH
-            FROM master.pasien p
-            WHERE p.NORM = :norm AND p.STATUS = 1
-            LIMIT 1
-        ");
-        $stmtPasien->execute([':norm' => $norm]);
-        $pasien = $stmtPasien->fetch(PDO::FETCH_ASSOC);
+    // Ambil data dasar pasien
+    $stmt = $pdoMaster->prepare("
+        SELECT 
+            p.NORM,
+            p.NAMA,
+            DATE(p.TANGGAL_LAHIR) AS TGL_LAHIR,
+            p.TEMPAT_LAHIR,
+            p.JENIS_KELAMIN,
+            COALESCE(p.ALAMAT, '-') AS ALAMAT,
+            p.GOLONGAN_DARAH
+        FROM master.pasien p
+        WHERE p.NORM = :norm AND p.STATUS = 1
+        LIMIT 1
+    ");
+    $stmt->execute([':norm' => $norm]);
+    $pasien = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$pasien) {
-            PasienConfig::jsonResponse([
-                'success' => false,
-                'message' => 'Data pasien dengan No. RM / NIK tersebut tidak ditemukan dalam sistem RS.'
-            ], 404);
-        }
+    return $pasien ?: null;
+}
 
-        // 4. Verifikasi Tanggal Lahir (Kerahasiaan Tingkat 2 - Mendukung format DD-MM maupun MM-DD)
-        $dobMatched = ($pasien['TGL_LAHIR'] === $dobParsed) || (!empty($dobAltParsed) && $pasien['TGL_LAHIR'] === $dobAltParsed);
-        if (!$dobMatched) {
-            PasienConfig::jsonResponse([
-                'success' => false,
-                'message' => 'Tanggal Lahir tidak cocok dengan data rekam medis terdaftar.'
-            ], 401);
-        }
+/**
+ * Menyusun data sesi login lengkap pasien
+ */
+function buildUserSessionData($norm, $pasien, $pdoMaster, $pdoDaftar) {
+    // Ambil NIK
+    $nikVal = '-';
+    try {
+        $stmtNik = $pdoMaster->prepare("SELECT NOMOR FROM master.kartu_identitas_pasien WHERE NORM = :norm AND JENIS = 1 LIMIT 1");
+        $stmtNik->execute([':norm' => $norm]);
+        $nikVal = $stmtNik->fetchColumn() ?: '-';
+    } catch (Exception $e) {}
 
-        // 5. Verifikasi 4 Digit Terakhir No. HP (Kerahasiaan Tingkat 3)
-        $stmtHp = $pdoMaster->prepare("
-            SELECT NOMOR 
-            FROM master.kontak_pasien 
-            WHERE NORM = :norm 
-              AND JENIS IN (1, 2, 3) 
-              AND NOMOR IS NOT NULL 
-              AND TRIM(NOMOR) != ''
-        ");
-        $stmtHp->execute([':norm' => $norm]);
-        $phoneRows = $stmtHp->fetchAll(PDO::FETCH_ASSOC);
+    // Golongan Darah
+    $golDarahMap = [1 => 'A', 2 => 'B', 3 => 'AB', 4 => 'O'];
+    $golDarahTeks = $golDarahMap[$pasien['GOLONGAN_DARAH'] ?? 0] ?? '-';
 
-        $hasRegisteredPhone = !empty($phoneRows);
-        $cleanLast4 = preg_replace('/[^0-9]/', '', $lastPhoneInput);
-
-        if ($hasRegisteredPhone) {
-            if (strlen($cleanLast4) < 4) {
-                PasienConfig::jsonResponse([
-                    'success' => false,
-                    'message' => 'Mohon masukkan 4 digit terakhir nomor HP yang didaftarkan di RS.'
-                ], 400);
-            }
-
-            $matchedPhone = false;
-            foreach ($phoneRows as $pRow) {
-                $cleanP = preg_replace('/[^0-9]/', '', $pRow['NOMOR']);
-                if (substr($cleanP, -4) === $cleanLast4) {
-                    $matchedPhone = true;
-                    break;
-                }
-            }
-
-            if (!$matchedPhone) {
-                PasienConfig::jsonResponse([
-                    'success' => false,
-                    'message' => '4 digit terakhir nomor HP tidak sesuai dengan data pendaftaran rumah sakit.'
-                ], 401);
-            }
-        }
-
-        // Ambil NIK resmi jika ada
-        $stmtNikReal = $pdoMaster->prepare("SELECT NOMOR FROM master.kartu_identitas_pasien WHERE NORM = :norm AND JENIS = 1 LIMIT 1");
-        $stmtNikReal->execute([':norm' => $norm]);
-        $nikVal = $stmtNikReal->fetchColumn() ?: '-';
-
-        // Ambil Golongan Darah jika ada
-        $golDarahMap = [1 => 'A', 2 => 'B', 3 => 'AB', 4 => 'O'];
-        $golDarahTeks = $golDarahMap[$pasien['GOLONGAN_DARAH'] ?? 0] ?? '-';
-
-        // Cek Status Rawat Inap Aktif saat ini
-        $pdoDaftar = PasienConfig::getConnection('pendaftaran');
-        $rawatInapAktif = null;
-        if ($pdoDaftar !== null) {
+    // Cek Rawat Inap Aktif
+    $rawatInapAktif = null;
+    if ($pdoDaftar !== null) {
+        try {
             $stmtRanap = $pdoDaftar->prepare("
                 SELECT 
                     k.NOMOR AS KUNJUNGAN_ID,
@@ -228,53 +149,464 @@ if ($action === 'login') {
             ");
             $stmtRanap->execute([':norm' => $norm]);
             $rawatInapAktif = $stmtRanap->fetch(PDO::FETCH_ASSOC);
-        }
-
-        // Format Session Data Pasien
-        $userData = [
-            'norm' => (int)$pasien['NORM'],
-            'norm_formatted' => str_pad($pasien['NORM'], 8, '0', STR_PAD_LEFT),
-            'nama' => $pasien['NAMA'],
-            'tgl_lahir' => $pasien['TGL_LAHIR'],
-            'tgl_lahir_indo' => PasienConfig::formatTglIndo($pasien['TGL_LAHIR'], false),
-            'jenis_kelamin' => (int)$pasien['JENIS_KELAMIN'] === 1 ? 'Laki-laki' : 'Perempuan',
-            'tempat_lahir' => $pasien['TEMPAT_LAHIR'] ?: 'Kupang',
-            'alamat' => $pasien['ALAMAT'],
-            'nik' => $nikVal,
-            'golongan_darah' => $golDarahTeks,
-            'has_registered_phone' => $hasRegisteredPhone,
-            'is_ranap' => !empty($rawatInapAktif),
-            'ranap_aktif' => $rawatInapAktif ?: null,
-            'login_time' => date('Y-m-d H:i:s')
-        ];
-
-        $_SESSION['pasien_user'] = $userData;
-
-        PasienConfig::jsonResponse([
-            'success' => true,
-            'message' => 'Verifikasi identitas berhasil. Selamat datang, ' . $pasien['NAMA'] . '!',
-            'data' => $userData
-        ]);
-
-    } catch (Exception $e) {
-        PasienConfig::jsonResponse([
-            'success' => false,
-            'message' => 'Terjadi kesalahan sistem saat verifikasi: ' . $e->getMessage()
-        ], 500);
+        } catch (Exception $e) {}
     }
+
+    return [
+        'norm'                 => (int)$pasien['NORM'],
+        'norm_formatted'       => str_pad($pasien['NORM'], 8, '0', STR_PAD_LEFT),
+        'nama'                 => $pasien['NAMA'],
+        'tgl_lahir'            => $pasien['TGL_LAHIR'],
+        'tgl_lahir_indo'       => PasienConfig::formatTglIndo($pasien['TGL_LAHIR'], false),
+        'jenis_kelamin'        => (int)$pasien['JENIS_KELAMIN'] === 1 ? 'Laki-laki' : 'Perempuan',
+        'tempat_lahir'         => $pasien['TEMPAT_LAHIR'] ?: 'Kupang',
+        'alamat'               => $pasien['ALAMAT'],
+        'nik'                  => $nikVal,
+        'golongan_darah'       => $golDarahTeks,
+        'is_ranap'             => !empty($rawatInapAktif),
+        'ranap_aktif'          => $rawatInapAktif ?: null,
+        'login_time'           => date('Y-m-d H:i:s')
+    ];
 }
 
+/**
+ * Sensor Nama untuk Privasi (contoh: "NADRAENI PRATAMI YAKOB" -> "NADRAENI P. Y.")
+ */
+function maskPatientName($fullName) {
+    $words = explode(' ', trim($fullName));
+    if (count($words) <= 1) return $fullName;
+    $first = $words[0];
+    $masked = [$first];
+    for ($i = 1; $i < count($words); $i++) {
+        if (!empty($words[$i])) {
+            $masked[] = substr($words[$i], 0, 1) . '***';
+        }
+    }
+    return implode(' ', $masked);
+}
+
+// ==============================================================================
+// 1. ACTION: CHECK IDENTIFIER (Cek apakah pasien ada dan sudah punya PIN)
+// ==============================================================================
+if ($action === 'check_identifier') {
+    $identifier = trim((string)($input['identifier'] ?? ''));
+    if (empty($identifier)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Masukkan No. Rekam Medis (No. RM) atau 16 Digit NIK Anda.'], 400);
+    }
+
+    $pdoMaster   = PasienConfig::getConnection('master');
+    $pdoReg      = PasienConfig::getConnection('regonline');
+    if (!$pdoMaster) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Gagal terhubung ke database master RS.'], 500);
+    }
+
+    $pasien = findPatientByIdentifier($identifier, $pdoMaster);
+    if (!$pasien) {
+        PasienConfig::jsonResponse([
+            'success' => false,
+            'message' => 'Data pasien tidak ditemukan. Pastikan No. RM atau NIK sudah benar terdaftar di RS.'
+        ], 404);
+    }
+
+    $norm = (int)$pasien['NORM'];
+
+    // Pastikan tabel auth ada
+    ensurePasienAuthTable($pdoReg);
+
+    // Cek status PIN dan lockout di regonline.pasien_auth
+    $hasPin = false;
+    $isLocked = false;
+    $lockRemainingMinutes = 0;
+
+    if ($pdoReg) {
+        try {
+            $stmtAuth = $pdoReg->prepare("
+                SELECT PIN_HASH, SALAH_INPUT, TERKUNCI_HINGGA, 
+                       (TERKUNCI_HINGGA > NOW()) AS IS_LOCKED,
+                       TIMESTAMPDIFF(MINUTE, NOW(), TERKUNCI_HINGGA) AS SISA_MENIT
+                FROM regonline.pasien_auth 
+                WHERE NORM = :norm
+                LIMIT 1
+            ");
+            $stmtAuth->execute([':norm' => $norm]);
+            $authRow = $stmtAuth->fetch(PDO::FETCH_ASSOC);
+
+            if ($authRow && !empty($authRow['PIN_HASH'])) {
+                $hasPin = true;
+                if ((int)$authRow['IS_LOCKED'] === 1) {
+                    $isLocked = true;
+                    $lockRemainingMinutes = max(1, (int)$authRow['SISA_MENIT']);
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
+    // Ambil petunjuk 4 digit nomor HP
+    $phoneHint = '';
+    try {
+        $stmtHp = $pdoMaster->prepare("
+            SELECT NOMOR 
+            FROM master.kontak_pasien 
+            WHERE NORM = :norm AND JENIS IN (1, 2, 3) AND NOMOR IS NOT NULL AND TRIM(NOMOR) != '' 
+            LIMIT 1
+        ");
+        $stmtHp->execute([':norm' => $norm]);
+        $rawHp = $stmtHp->fetchColumn();
+        if ($rawHp) {
+            $cleanP = preg_replace('/[^0-9]/', '', $rawHp);
+            if (strlen($cleanP) >= 4) {
+                $phoneHint = '•••• ' . substr($cleanP, -4);
+            }
+        }
+    } catch (Exception $e) {}
+
+    PasienConfig::jsonResponse([
+        'success'               => true,
+        'norm'                  => $norm,
+        'norm_formatted'        => str_pad($norm, 8, '0', STR_PAD_LEFT),
+        'nama_display'          => maskPatientName($pasien['NAMA']),
+        'has_pin'               => $hasPin,
+        'is_locked'             => $isLocked,
+        'lock_remaining_minutes'=> $lockRemainingMinutes,
+        'phone_hint'            => $phoneHint ?: '•••• terdaftar'
+    ]);
+}
+
+// ==============================================================================
+// 2. ACTION: LOGIN PIN (Masuk menggunakan 6 Digit PIN Pribadi)
+// ==============================================================================
+if ($action === 'login_pin') {
+    $identifier = trim((string)($input['identifier'] ?? ''));
+    $pin        = trim((string)($input['pin'] ?? ''));
+
+    if (empty($identifier) || empty($pin)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'No. RM dan 6 Digit PIN wajib diisi.'], 400);
+    }
+
+    if (strlen($pin) !== 6 || !ctype_digit($pin)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN harus berupa 6 digit angka.'], 400);
+    }
+
+    $pdoMaster = PasienConfig::getConnection('master');
+    $pdoReg    = PasienConfig::getConnection('regonline');
+    $pdoDaftar = PasienConfig::getConnection('pendaftaran');
+
+    $pasien = findPatientByIdentifier($identifier, $pdoMaster);
+    if (!$pasien) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Data pasien tidak ditemukan.'], 404);
+    }
+
+    $norm = (int)$pasien['NORM'];
+    ensurePasienAuthTable($pdoReg);
+
+    // Ambil data PIN dari regonline.pasien_auth
+    $stmtAuth = $pdoReg->prepare("
+        SELECT PIN_HASH, SALAH_INPUT, TERKUNCI_HINGGA, 
+               (TERKUNCI_HINGGA > NOW()) AS IS_LOCKED,
+               TIMESTAMPDIFF(MINUTE, NOW(), TERKUNCI_HINGGA) AS SISA_MENIT
+        FROM regonline.pasien_auth 
+        WHERE NORM = :norm
+        LIMIT 1
+    ");
+    $stmtAuth->execute([':norm' => $norm]);
+    $authRow = $stmtAuth->fetch(PDO::FETCH_ASSOC);
+
+    if (!$authRow || empty($authRow['PIN_HASH'])) {
+        PasienConfig::jsonResponse([
+            'success'   => false,
+            'need_setup'=> true,
+            'message'   => 'Akun Anda belum memiliki PIN. Silakan lakukan verifikasi awal untuk membuat PIN.'
+        ], 400);
+    }
+
+    // Cek apakah akun sedang terkunci
+    if ((int)$authRow['IS_LOCKED'] === 1) {
+        $sisa = max(1, (int)$authRow['SISA_MENIT']);
+        $tzLabel = PasienConfig::getTimezoneLabel();
+        PasienConfig::jsonResponse([
+            'success'   => false,
+            'is_locked' => true,
+            'message'   => "Akun sementara terkunci demi keamanan karena 5x salah PIN. Silakan coba kembali dalam {$sisa} menit ({$tzLabel}) atau pilih opsi 'Lupa PIN'."
+        ], 403);
+    }
+
+    // Verifikasi PIN dengan Bcrypt
+    $isValidPin = password_verify($pin, $authRow['PIN_HASH']);
+
+    if (!$isValidPin) {
+        $salahBaru = (int)$authRow['SALAH_INPUT'] + 1;
+        $sisaPercobaan = max(0, 5 - $salahBaru);
+
+        if ($salahBaru >= 5) {
+            // Lockout 15 menit
+            $stmtLock = $pdoReg->prepare("
+                UPDATE regonline.pasien_auth 
+                SET SALAH_INPUT = :salah, TERKUNCI_HINGGA = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+                WHERE NORM = :norm
+            ");
+            $stmtLock->execute([':salah' => $salahBaru, ':norm' => $norm]);
+
+            PasienConfig::jsonResponse([
+                'success'   => false,
+                'is_locked' => true,
+                'message'   => 'PIN salah sebanyak 5 kali. Demi keamanan rekam medis Anda, akun dibekukan sementara selama 15 menit. Anda dapat menggunakan menu Lupa PIN untuk mereset.'
+            ], 403);
+        } else {
+            // Update hitungan salah
+            $stmtFail = $pdoReg->prepare("
+                UPDATE regonline.pasien_auth 
+                SET SALAH_INPUT = :salah 
+                WHERE NORM = :norm
+            ");
+            $stmtFail->execute([':salah' => $salahBaru, ':norm' => $norm]);
+
+            PasienConfig::jsonResponse([
+                'success'        => false,
+                'sisa_percobaan' => $sisaPercobaan,
+                'message'        => "PIN yang Anda masukkan salah. Sisa kesempatan: {$sisaPercobaan} kali lagi."
+            ], 401);
+        }
+    }
+
+    // PIN BENAR: Reset salah input & perbarui waktu login
+    $stmtSuccess = $pdoReg->prepare("
+        UPDATE regonline.pasien_auth 
+        SET SALAH_INPUT = 0, TERKUNCI_HINGGA = NULL, TERAKHIR_LOGIN = NOW()
+        WHERE NORM = :norm
+    ");
+    $stmtSuccess->execute([':norm' => $norm]);
+
+    // Bentuk sesi login resmi
+    $userData = buildUserSessionData($norm, $pasien, $pdoMaster, $pdoDaftar);
+    $_SESSION['pasien_user'] = $userData;
+
+    PasienConfig::jsonResponse([
+        'success' => true,
+        'message' => 'Selamat datang kembali, ' . $pasien['NAMA'] . '!',
+        'data'    => $userData
+    ]);
+}
+
+// ==============================================================================
+// 3. ACTION: VERIFY IDENTITY (Untuk Aktivasi PIN Pertama Kali atau Lupa PIN)
+// ==============================================================================
+if ($action === 'verify_identity') {
+    $identifier     = trim((string)($input['identifier'] ?? ''));
+    $tglLahirInput  = trim((string)($input['tgl_lahir'] ?? ''));
+    $lastPhoneInput = trim((string)($input['last_phone'] ?? ''));
+
+    if (empty($identifier) || empty($tglLahirInput)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'No. RM/NIK dan Tanggal Lahir wajib diisi.'], 400);
+    }
+
+    $pdoMaster = PasienConfig::getConnection('master');
+    $pasien = findPatientByIdentifier($identifier, $pdoMaster);
+    if (!$pasien) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Data pasien tidak ditemukan.'], 404);
+    }
+
+    $norm = (int)$pasien['NORM'];
+
+    // Normalisasi Tanggal Lahir
+    $dobParsed = null;
+    $dobAltParsed = null;
+    $cleanDob = trim($tglLahirInput);
+    if (preg_match('/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/', $cleanDob, $m)) {
+        $dobParsed = sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+    } elseif (preg_match('/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/', $cleanDob, $m)) {
+        $part1 = (int)$m[1];
+        $part2 = (int)$m[2];
+        $year  = (int)$m[3];
+        if ($part1 > 12) {
+            $dobParsed = sprintf('%04d-%02d-%02d', $year, $part2, $part1);
+        } elseif ($part2 > 12) {
+            $dobParsed = sprintf('%04d-%02d-%02d', $year, $part1, $part2);
+        } else {
+            $dobParsed    = sprintf('%04d-%02d-%02d', $year, $part2, $part1);
+            $dobAltParsed = sprintf('%04d-%02d-%02d', $year, $part1, $part2);
+        }
+    } else {
+        $t = strtotime($cleanDob);
+        if ($t && $t > 0) $dobParsed = date('Y-m-d', $t);
+    }
+
+    $dobMatched = ($pasien['TGL_LAHIR'] === $dobParsed) || (!empty($dobAltParsed) && $pasien['TGL_LAHIR'] === $dobAltParsed);
+    if (!$dobMatched) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Tanggal Lahir tidak cocok dengan data rekam medis terdaftar.'], 401);
+    }
+
+    // Verifikasi 4 Digit No. HP jika nomor terdaftar di master
+    $stmtHp = $pdoMaster->prepare("
+        SELECT NOMOR 
+        FROM master.kontak_pasien 
+        WHERE NORM = :norm AND JENIS IN (1, 2, 3) AND NOMOR IS NOT NULL AND TRIM(NOMOR) != ''
+    ");
+    $stmtHp->execute([':norm' => $norm]);
+    $phoneRows = $stmtHp->fetchAll(PDO::FETCH_ASSOC);
+
+    $hasRegisteredPhone = !empty($phoneRows);
+    $cleanLast4 = preg_replace('/[^0-9]/', '', $lastPhoneInput);
+
+    if ($hasRegisteredPhone) {
+        if (strlen($cleanLast4) < 4) {
+            PasienConfig::jsonResponse(['success' => false, 'message' => 'Mohon masukkan 4 digit terakhir nomor HP yang didaftarkan di RS.'], 400);
+        }
+
+        $matchedPhone = false;
+        foreach ($phoneRows as $pRow) {
+            $cleanP = preg_replace('/[^0-9]/', '', $pRow['NOMOR']);
+            if (substr($cleanP, -4) === $cleanLast4) {
+                $matchedPhone = true;
+                break;
+            }
+        }
+
+        if (!$matchedPhone) {
+            PasienConfig::jsonResponse(['success' => false, 'message' => '4 digit terakhir nomor HP tidak cocok dengan data rekam medis.'], 401);
+        }
+    }
+
+    // Berhasil verifikasi: Berikan token sesi verifikasi sementara (berlaku 10 menit)
+    $_SESSION['temp_auth_norm'] = $norm;
+    $_SESSION['temp_auth_time'] = time();
+
+    PasienConfig::jsonResponse([
+        'success' => true,
+        'norm'    => $norm,
+        'message' => 'Identitas terverifikasi. Silakan tentukan 6 Digit PIN Pribadi Anda.'
+    ]);
+}
+
+// ==============================================================================
+// 4. ACTION: SET PIN (Buat PIN Baru atau Reset PIN)
+// ==============================================================================
+if ($action === 'set_pin') {
+    $tempNorm = $_SESSION['temp_auth_norm'] ?? null;
+    $tempTime = $_SESSION['temp_auth_time'] ?? 0;
+
+    if (empty($tempNorm) || (time() - $tempTime) > 600) {
+        PasienConfig::jsonResponse([
+            'success' => false,
+            'message' => 'Sesi verifikasi identitas Anda telah berakhir. Silakan lakukan verifikasi ulang.'
+        ], 401);
+    }
+
+    $pin        = trim((string)($input['pin'] ?? ''));
+    $confirmPin = trim((string)($input['confirm_pin'] ?? ''));
+
+    if (strlen($pin) !== 6 || !ctype_digit($pin)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN harus berupa 6 angka kombinasi unik.'], 400);
+    }
+
+    if ($pin !== $confirmPin) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Konfirmasi PIN tidak cocok dengan PIN baru.'], 400);
+    }
+
+    // Proteksi PIN terlalu sederhana (misal 000000, 111111, dll)
+    if (preg_match('/^(\d)\1{5}$/', $pin) || in_array($pin, ['123456', '654321'])) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN terlalu mudah ditebak. Hindari angka kembar (contoh: 111111) atau berurutan (contoh: 123456).'], 400);
+    }
+
+    $pdoReg    = PasienConfig::getConnection('regonline');
+    $pdoMaster = PasienConfig::getConnection('master');
+    $pdoDaftar = PasienConfig::getConnection('pendaftaran');
+
+    ensurePasienAuthTable($pdoReg);
+
+    // Enkripsi Bcrypt
+    $pinHash = password_hash($pin, PASSWORD_BCRYPT);
+
+    $stmtSave = $pdoReg->prepare("
+        INSERT INTO regonline.pasien_auth (NORM, PIN_HASH, SALAH_INPUT, TERKUNCI_HINGGA, TERAKHIR_LOGIN)
+        VALUES (:norm, :hash, 0, NULL, NOW())
+        ON DUPLICATE KEY UPDATE 
+            PIN_HASH = :hash2, 
+            SALAH_INPUT = 0, 
+            TERKUNCI_HINGGA = NULL, 
+            TERAKHIR_LOGIN = NOW(),
+            DIPERBARUI_TANGGAL = NOW()
+    ");
+    $stmtSave->execute([
+        ':norm'  => $tempNorm,
+        ':hash'  => $pinHash,
+        ':hash2' => $pinHash
+    ]);
+
+    // Hapus token sementara
+    unset($_SESSION['temp_auth_norm'], $_SESSION['temp_auth_time']);
+
+    // Langsung buat sesi login aktif pasien
+    $pasien = findPatientByIdentifier($tempNorm, $pdoMaster);
+    $userData = buildUserSessionData($tempNorm, $pasien, $pdoMaster, $pdoDaftar);
+    $_SESSION['pasien_user'] = $userData;
+
+    PasienConfig::jsonResponse([
+        'success' => true,
+        'message' => '6 Digit PIN PasienKu berhasil disimpan! Anda telah masuk.',
+        'data'    => $userData
+    ]);
+}
+
+// ==============================================================================
+// 5. ACTION: CHANGE PIN (Ubah PIN dari Pengaturan Akun di dalam Aplikasi)
+// ==============================================================================
+if ($action === 'change_pin') {
+    $user = PasienConfig::requireAuth();
+    $norm = (int)$user['norm'];
+
+    $oldPin     = trim((string)($input['old_pin'] ?? ''));
+    $newPin     = trim((string)($input['new_pin'] ?? ''));
+    $confirmPin = trim((string)($input['confirm_new_pin'] ?? ''));
+
+    if (empty($oldPin) || empty($newPin)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN lama dan PIN baru wajib diisi.'], 400);
+    }
+
+    if (strlen($newPin) !== 6 || !ctype_digit($newPin)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN baru harus terdiri dari 6 angka.'], 400);
+    }
+
+    if ($newPin !== $confirmPin) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'Konfirmasi PIN baru tidak sesuai.'], 400);
+    }
+
+    $pdoReg = PasienConfig::getConnection('regonline');
+    $stmtAuth = $pdoReg->prepare("SELECT PIN_HASH FROM regonline.pasien_auth WHERE NORM = :norm LIMIT 1");
+    $stmtAuth->execute([':norm' => $norm]);
+    $currentHash = $stmtAuth->fetchColumn();
+
+    if (!$currentHash || !password_verify($oldPin, $currentHash)) {
+        PasienConfig::jsonResponse(['success' => false, 'message' => 'PIN lama yang Anda masukkan salah.'], 401);
+    }
+
+    $newHash = password_hash($newPin, PASSWORD_BCRYPT);
+    $stmtUpdate = $pdoReg->prepare("
+        UPDATE regonline.pasien_auth 
+        SET PIN_HASH = :hash, SALAH_INPUT = 0, DIPERBARUI_TANGGAL = NOW() 
+        WHERE NORM = :norm
+    ");
+    $stmtUpdate->execute([':hash' => $newHash, ':norm' => $norm]);
+
+    PasienConfig::jsonResponse([
+        'success' => true,
+        'message' => 'PIN PasienKu Anda berhasil diperbarui.'
+    ]);
+}
+
+// ==============================================================================
+// 6. ACTION: CHECK & LOGOUT
+// ==============================================================================
 if ($action === 'check') {
     $active = PasienConfig::getActivePatient();
     if ($active) {
         PasienConfig::jsonResponse([
-            'success' => true,
+            'success'       => true,
             'authenticated' => true,
-            'data' => $active
+            'data'          => $active
         ]);
     } else {
         PasienConfig::jsonResponse([
-            'success' => false,
+            'success'       => false,
             'authenticated' => false
         ]);
     }
@@ -282,6 +614,8 @@ if ($action === 'check') {
 
 if ($action === 'logout') {
     unset($_SESSION['pasien_user']);
+    unset($_SESSION['temp_auth_norm']);
+    unset($_SESSION['temp_auth_time']);
     if (session_status() === PHP_SESSION_ACTIVE) {
         session_destroy();
     }

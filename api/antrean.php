@@ -567,12 +567,24 @@ try {
                 return strcmp($b['tgl_kunjungan'], $a['tgl_kunjungan']);
             });
 
+            $totalAktif = 0;
+            $totalExpired = 0;
+            foreach ($formattedRujukan as $r) {
+                if (!empty($r['is_expired'])) {
+                    $totalExpired++;
+                } else {
+                    $totalAktif++;
+                }
+            }
+
             if (!empty($formattedRujukan)) {
                 echo json_encode([
-                    'success'  => true,
-                    'no_kartu' => $noKartu,
-                    'total'    => count($formattedRujukan),
-                    'data'     => $formattedRujukan
+                    'success'       => true,
+                    'no_kartu'      => $noKartu,
+                    'total'         => count($formattedRujukan),
+                    'total_aktif'   => $totalAktif,
+                    'total_expired' => $totalExpired,
+                    'data'          => $formattedRujukan
                 ]);
             } else {
                 echo json_encode([

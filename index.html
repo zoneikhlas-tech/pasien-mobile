@@ -2854,7 +2854,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.14').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.15').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -5268,13 +5268,23 @@
 
             // 1. SURAT KONTROL DOKTER (SKDP) BPJS - Ditaruh PALING ATAS karena prioritas pasien kontrol
             if (json && json.surat_kontrol && json.surat_kontrol.length > 0) {
-                opts += '<optgroup label="🟢 Surat Kontrol Dokter (SKDP)">';
+                opts += '<optgroup label="📋 Surat Kontrol Dokter (SKDP)">';
                 json.surat_kontrol.forEach((sk, idx) => {
                     const isSelect = (!hasSelected && sk.sisaHari >= -7 && !sk.isUsed) ? 'selected' : '';
                     if (isSelect) hasSelected = true;
-                    const usedTag = sk.isUsed ? ' [SUDAH TERPAKAI]' : '';
+                    
+                    let statusIcon = '🟢 ';
+                    let statusTag = '';
+                    if (sk.isUsed) {
+                        statusIcon = '⚪ ';
+                        statusTag = ' [SUDAH TERPAKAI]';
+                    } else if (sk.sisaHari < -7) {
+                        statusIcon = '⚠️ ';
+                        statusTag = ' [LEWAT JADWAL]';
+                    }
+
                     opts += `<option value="${sk.noSurat}" data-type="skdp" data-tgl="${sk.tglRencanaKontrol}" data-poli-id="${sk.poliId || ''}" data-poli-kode="${sk.poliBpjs || ''}" data-dokter-id="${sk.dokterId || ''}" data-dokter-bpjs="${sk.dokterBpjs || ''}" ${isSelect}>
-                        🟢 SKDP: ${sk.noSurat} (${sk.tglRencanaKontrol} - ${sk.namaPoli || 'Poli'} - ${sk.namaDokter || ''})${usedTag}
+                        ${statusIcon}SKDP: ${sk.noSurat} (${sk.tglRencanaKontrol} - ${sk.namaPoli || 'Poli'} - ${sk.namaDokter || ''})${statusTag}
                     </option>`;
                 });
                 opts += '</optgroup>';
@@ -5351,18 +5361,37 @@
 
                 if (json.success && json.data && json.data.length > 0) {
                     renderLocalRujukanOptions(bpjsReferenceCache, json.data);
+
+                    const activeRujukan = json.data.filter(r => !r.is_expired);
+                    const expiredRujukan = json.data.filter(r => r.is_expired);
+
                     if (statusEl) {
-                        statusEl.textContent = `Ditemukan ${json.data.length} rujukan aktif di BPJS`;
-                        statusEl.className = 'text-[10px] text-emerald-700 font-bold';
+                        if (activeRujukan.length > 0) {
+                            if (expiredRujukan.length > 0) {
+                                statusEl.textContent = `Ditemukan ${activeRujukan.length} rujukan aktif (${expiredRujukan.length} kedaluwarsa)`;
+                            } else {
+                                statusEl.textContent = `Ditemukan ${activeRujukan.length} rujukan aktif di BPJS`;
+                            }
+                            statusEl.className = 'text-[10px] text-emerald-700 font-bold';
+                        } else {
+                            statusEl.textContent = `Semua rujukan BPJS kedaluwarsa (${expiredRujukan.length} rujukan >90 hari)`;
+                            statusEl.className = 'text-[10px] text-amber-700 font-semibold';
+                        }
                     }
-                    if (!isAuto) alert(`Berhasil menemukan ${json.data.length} surat rujukan aktif dari server BPJS Kesehatan!\n\nNomor: ${json.data[0].no_kunjungan}\nFaskes: ${json.data[0].prov_nama}\nPoli: ${json.data[0].poli_nama}`);
+                    if (!isAuto) {
+                        if (activeRujukan.length > 0) {
+                            alert(`Berhasil menemukan ${activeRujukan.length} surat rujukan aktif dari server BPJS Kesehatan!\n\nNomor: ${activeRujukan[0].no_kunjungan}\nFaskes: ${activeRujukan[0].prov_nama}\nPoli: ${activeRujukan[0].poli_nama}`);
+                        } else {
+                            alert(`Ditemukan ${expiredRujukan.length} riwayat rujukan di server BPJS Kesehatan, namun semuanya sudah kedaluwarsa (masa berlaku rujukan BPJS adalah 90 hari).\n\nSilakan minta surat rujukan baru ke Faskes 1 (Puskesmas/Klinik) atau gunakan Surat Kontrol Dokter (SKDP).`);
+                        }
+                    }
                 } else {
                     if (statusEl) {
-                        statusEl.textContent = 'Tidak ada rujukan aktif di BPJS';
+                        statusEl.textContent = 'Tidak ada rujukan di BPJS';
                         statusEl.className = 'text-[10px] text-amber-700 font-semibold';
                     }
                     renderLocalRujukanOptions(bpjsReferenceCache, []);
-                    if (!isAuto) alert(json.message || 'Tidak ditemukan rujukan aktif untuk nomor kartu tersebut di server BPJS.');
+                    if (!isAuto) alert(json.message || 'Tidak ditemukan rujukan untuk nomor kartu tersebut di server BPJS.');
                 }
             } catch (err) {
                 if (statusEl) {

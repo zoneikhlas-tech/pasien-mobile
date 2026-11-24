@@ -8,6 +8,10 @@
  * ==============================================================================
  */
 
+// Mencegah error / warning PHP merusak payload JSON ke client
+error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
+ini_set('display_errors', '0');
+
 // Mulai Sesi Mandiri Portal Pasien
 if (session_status() === PHP_SESSION_NONE) {
     session_name('SIMGOS_PASIEN_SESS');

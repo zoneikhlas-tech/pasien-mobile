@@ -260,23 +260,28 @@ if ($action === 'check_identifier') {
         }
     } catch (Exception $e) {}
 
-    PasienConfig::jsonResponse([
-        'success'               => true,
+    $patientData = [
         'norm'                  => $norm,
         'norm_formatted'        => str_pad($norm, 8, '0', STR_PAD_LEFT),
+        'nama'                  => $pasien['NAMA'],
         'nama_display'          => maskPatientName($pasien['NAMA']),
         'has_pin'               => $hasPin,
         'is_locked'             => $isLocked,
         'lock_remaining_minutes'=> $lockRemainingMinutes,
         'phone_hint'            => $phoneHint ?: '•••• terdaftar'
-    ]);
+    ];
+
+    PasienConfig::jsonResponse(array_merge([
+        'success' => true,
+        'data'    => $patientData
+    ], $patientData));
 }
 
 // ==============================================================================
 // 2. ACTION: LOGIN PIN (Masuk menggunakan 6 Digit PIN Pribadi)
 // ==============================================================================
 if ($action === 'login_pin') {
-    $identifier = trim((string)($input['identifier'] ?? ''));
+    $identifier = trim((string)($input['identifier'] ?? $input['norm'] ?? ''));
     $pin        = trim((string)($input['pin'] ?? ''));
 
     if (empty($identifier) || empty($pin)) {
@@ -391,7 +396,7 @@ if ($action === 'login_pin') {
 // 3. ACTION: VERIFY IDENTITY (Untuk Aktivasi PIN Pertama Kali atau Lupa PIN)
 // ==============================================================================
 if ($action === 'verify_identity') {
-    $identifier     = trim((string)($input['identifier'] ?? ''));
+    $identifier     = trim((string)($input['identifier'] ?? $input['norm'] ?? ''));
     $tglLahirInput  = trim((string)($input['tgl_lahir'] ?? ''));
     $lastPhoneInput = trim((string)($input['last_phone'] ?? ''));
 

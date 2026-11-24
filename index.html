@@ -2807,7 +2807,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.8').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.9').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -2945,25 +2945,32 @@
                 const res = await fetch(getApiUrl('auth.php?action=check_identifier'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier: val })
+                    body: JSON.stringify({ identifier: val, norm: val })
                 });
 
-                const json = await res.json();
-
-                if (!json.success) {
-                    showLoginError(json.message || 'Nomor Rekam Medis atau NIK tidak ditemukan.');
+                let json;
+                try {
+                    json = await res.json();
+                } catch (parseErr) {
+                    console.error('Response JSON parse error:', parseErr);
+                    showLoginError('Respon server tidak valid. Pastikan server web aktif.');
                     return;
                 }
 
-                const d = json.data;
+                if (!json || !json.success) {
+                    showLoginError(json?.message || 'Nomor Rekam Medis atau NIK tidak ditemukan.');
+                    return;
+                }
+
+                const d = json.data || json;
                 authFlowState.identifier = val;
                 authFlowState.norm = d.norm;
-                authFlowState.nama = d.nama;
-                authFlowState.has_pin = d.has_pin;
+                authFlowState.nama = d.nama || d.nama_display || 'Pasien';
+                authFlowState.has_pin = !!d.has_pin;
                 authFlowState.phone_hint = d.phone_hint || '';
 
                 if (d.is_locked) {
-                    showLoginError(`Akun Anda terkunci sementara hingga ${d.locked_until || '15 menit ke depan'} karena salah memasukkan PIN berulang kali. Silakan coba lagi nanti.`);
+                    showLoginError(`Akun Anda terkunci sementara hingga ${d.locked_until || (d.lock_remaining_minutes ? d.lock_remaining_minutes + ' menit lagi' : '15 menit ke depan')} karena salah memasukkan PIN berulang kali. Silakan coba lagi nanti.`);
                     return;
                 }
 
@@ -2989,7 +2996,8 @@
                     switchAuthStep('verify');
                 }
             } catch (err) {
-                showLoginError('Gagal terhubung ke server rumah sakit. Periksa jaringan Anda.');
+                console.error('Identifier submit error:', err);
+                showLoginError('Gagal terhubung ke server rumah sakit. (' + (err.message || 'Periksa jaringan Anda') + ')');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<span>Lanjutkan</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
@@ -3037,17 +3045,26 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        identifier: authFlowState.norm || authFlowState.identifier,
                         norm: authFlowState.norm,
                         pin: pin
                     })
                 });
 
-                const json = await res.json();
-
-                if (json.success && json.data) {
+                let json;
+                try {
+                    json = await res.json();
+                } catch (parseErr) {
                     authFlowState.pin = '';
                     updatePinDots();
-                    showDashboard(json.data);
+                    showLoginError('Respon server tidak valid.');
+                    return;
+                }
+
+                if (json && json.success && (json.data || json.norm)) {
+                    authFlowState.pin = '';
+                    updatePinDots();
+                    showDashboard(json.data || json);
                 } else {
                     const dotBox = document.getElementById('pin-dots-container');
                     if (dotBox) {
@@ -3056,12 +3073,13 @@
                     }
                     authFlowState.pin = '';
                     updatePinDots();
-                    showLoginError(json.message || 'PIN yang Anda masukkan tidak sesuai.');
+                    showLoginError(json?.message || 'PIN yang Anda masukkan tidak sesuai.');
                 }
             } catch (e) {
+                console.error('PIN submit error:', e);
                 authFlowState.pin = '';
                 updatePinDots();
-                showLoginError('Gagal memverifikasi PIN. Silakan periksa koneksi internet Anda.');
+                showLoginError('Gagal memverifikasi PIN: ' + (e.message || 'Periksa koneksi Anda.'));
             } finally {
                 authFlowState.pinBusy = false;
             }
@@ -3101,21 +3119,29 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         identifier: authFlowState.norm || authFlowState.identifier || document.getElementById('input-identifier').value.trim(),
+                        norm: authFlowState.norm,
                         tgl_lahir: dob,
                         last_phone: phone
                     })
                 });
 
-                const json = await res.json();
+                let json;
+                try {
+                    json = await res.json();
+                } catch (parseErr) {
+                    showLoginError('Respon server tidak valid.');
+                    return;
+                }
 
-                if (json.success) {
+                if (json && json.success) {
                     showLoginInfo('Identitas terverifikasi resmi! Silakan buat 6-digit PIN baru Anda.');
                     switchAuthStep('create-pin');
                 } else {
-                    showLoginError(json.message || 'Verifikasi data gagal. Periksa tanggal lahir dan nomor HP.');
+                    showLoginError(json?.message || 'Verifikasi data gagal. Periksa tanggal lahir dan nomor HP.');
                 }
             } catch (err) {
-                showLoginError('Gagal menghubungi server. Periksa koneksi internet Anda.');
+                console.error('Verify error:', err);
+                showLoginError('Gagal menghubungi server. (' + (err.message || 'Periksa jaringan Anda') + ')');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<span>Lanjutkan</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
@@ -3153,15 +3179,22 @@
                     })
                 });
 
-                const json = await res.json();
+                let json;
+                try {
+                    json = await res.json();
+                } catch (parseErr) {
+                    showLoginError('Respon server tidak valid.');
+                    return;
+                }
 
-                if (json.success && json.data) {
-                    showDashboard(json.data);
+                if (json && json.success && (json.data || json.norm)) {
+                    showDashboard(json.data || json);
                 } else {
-                    showLoginError(json.message || 'Gagal menyimpan PIN baru.');
+                    showLoginError(json?.message || 'Gagal menyimpan PIN baru.');
                 }
             } catch (err) {
-                showLoginError('Gagal menyimpan PIN ke server. Silakan coba kembali.');
+                console.error('Set pin error:', err);
+                showLoginError('Gagal menyimpan PIN ke server. (' + (err.message || 'Coba kembali') + ')');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Simpan PIN & Masuk</span>`;

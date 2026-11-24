@@ -507,20 +507,33 @@
             <section id="tab-beranda" class="space-y-4">
 
                 <!-- Greeting & Quick Action Hub -->
-                <div class="card-luxury p-4.5 space-y-3.5">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p id="home-greeting-time" class="text-xs font-bold text-teal-700">Selamat Pagi,</p>
-                            <h2 id="home-greeting-name" class="text-lg font-black text-slate-900 tracking-tight leading-snug">Pasien 👋</h2>
-                            <p class="text-[11px] text-slate-400 font-medium mt-0.5" id="home-date-today">-</p>
+                <div class="card-luxury p-5 space-y-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="inline-flex items-center gap-1.5 text-[10px] font-bold text-teal-800 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-200/80">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span>Pasien Terverifikasi</span>
+                                </span>
+                                <span id="home-date-today" class="text-[11px] text-slate-400 font-medium">-</span>
+                            </div>
+                            <h2 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug truncate">
+                                <span id="home-greeting-time" class="text-teal-700 font-semibold">Selamat Pagi,</span>
+                                <span id="home-greeting-name" class="font-extrabold text-slate-900">Pasien</span>
+                            </h2>
                         </div>
-                        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-700 to-emerald-600 text-white flex items-center justify-center shadow-lg shadow-teal-700/25">
-                            <i data-lucide="shield-check" class="w-6 h-6"></i>
-                        </div>
+                        
+                        <!-- Shortcut Kartu Pasien & Barcode APM -->
+                        <button type="button" onclick="switchTab('profil')" 
+                                class="flex items-center gap-2 px-3 py-2 rounded-xl bg-teal-50 hover:bg-teal-100/80 border border-teal-200/80 text-teal-900 transition active:scale-95 shrink-0 group"
+                                title="Buka Kartu Pasien & Barcode Scanner APM">
+                            <i data-lucide="qr-code" class="w-4 h-4 text-teal-700 group-hover:scale-110 transition"></i>
+                            <span class="text-xs font-bold text-teal-800">Kartu RM</span>
+                        </button>
                     </div>
 
                     <!-- Quick Action 8-Grid (Layanan Informasi & Fitur Pasien RSUP dr. Ben Mboi) -->
-                    <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100/80">
+                    <div class="grid grid-cols-4 gap-2 pt-3 border-t border-slate-100/80">
                         <!-- 1. Jadwal Dokter -->
                         <button onclick="openModalJadwalDokter()" class="group flex flex-col items-center p-2 rounded-2xl hover:bg-emerald-50/70 active:scale-95 transition">
                             <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white flex items-center justify-center transition shadow-sm border border-emerald-100/70">
@@ -655,7 +668,7 @@
                 </div>
 
                 <!-- Live Antrean Poli Hari Ini / Mendatang (Apple Live Activity Widget) -->
-                <div id="card-antrean-hari-ini" onclick="switchTab('antrean')" class="hidden rounded-3xl bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-4.5 shadow-xl shadow-slate-900/20 space-y-2.5 cursor-pointer active:scale-98 transition duration-150 border border-teal-500/25 relative overflow-hidden">
+                <div id="card-antrean-hari-ini" onclick="switchTab('antrean')" class="hidden rounded-3xl bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-5 shadow-xl shadow-slate-900/20 space-y-2.5 cursor-pointer active:scale-98 transition duration-150 border border-teal-500/25 relative overflow-hidden">
                     <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-teal-500/10 rounded-full blur-xl pointer-events-none"></div>
 
                     <div class="flex justify-between items-center text-xs font-bold gap-2">
@@ -853,7 +866,7 @@
                 </div>
 
                 <!-- Informasi Jam Besuk & Aturan Pasien -->
-                <div class="card-luxury p-4.5 border border-slate-200/80 text-xs text-slate-600 space-y-2.5">
+                <div class="card-luxury p-5 border border-slate-200/80 text-xs text-slate-600 space-y-2.5">
                     <div class="flex items-center gap-2 font-black text-slate-800">
                         <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
                             <i data-lucide="clock" class="w-3.5 h-3.5"></i>
@@ -2880,7 +2893,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.16').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.17').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -2978,15 +2991,17 @@
 
             const greetNameEl = document.getElementById('home-greeting-name');
             if (greetNameEl) {
-                const firstName = patientName.trim().split(/\s+/)[0];
-                greetNameEl.textContent = firstName + ' 👋';
+                const rawFirst = patientName.trim().split(/\s+/)[0] || 'Pasien';
+                // Format Title Case (contoh: SURIYANDI -> Suriyandi)
+                const formattedName = rawFirst.charAt(0).toUpperCase() + rawFirst.slice(1).toLowerCase();
+                greetNameEl.textContent = formattedName;
             }
 
             const dateTodayEl = document.getElementById('home-date-today');
             if (dateTodayEl) {
                 const options = { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' };
                 const formattedDate = new Date().toLocaleDateString('id-ID', options);
-                dateTodayEl.textContent = formattedDate + ' • Terverifikasi';
+                dateTodayEl.textContent = formattedDate;
             }
 
             // Render Kartu Pasien
@@ -4337,7 +4352,7 @@
                 }
 
                 html += `
-                    <div class="card-luxury p-4.5 bg-white border border-slate-200/80 rounded-3xl space-y-3.5 transition-all duration-200 hover:shadow-md relative">
+                    <div class="card-luxury p-5 bg-white border border-slate-200/80 rounded-3xl space-y-3.5 transition-all duration-200 hover:shadow-md relative">
                         <!-- Top Row: Badge Jenis & Tanggal Terbit Dokumen -->
                         <div class="flex items-center justify-between gap-2">
                             <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-xl border ${typeBadge}">

@@ -93,9 +93,6 @@ return [
 ];
 ```
 
-> [!NOTE]
-> File `db.local.php` sudah otomatis terdaftar dalam `.gitignore` sehingga data kredensial database rumah sakit Anda tidak akan pernah bocor ke publik saat melakukan push ke Git repository.
-
 ### Langkah 4: Migrasi Tabel Database (`regonline.pasien_auth`)
 Aplikasi telah dilengkapi fitur *auto-create table*, namun untuk lingkungan *production* yang membatasi hak akses DDL user database, administrator disarankan mengeksekusi skrip SQL yang telah disediakan:
 ```bash

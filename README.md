@@ -51,14 +51,14 @@ Didesain dengan antarmuka berkelas internasional (ala *Apple Health* dan standar
 
 ---
 
-## 🚀 Panduan Instalasi (3 Langkah Cepat)
+## 🚀 Panduan Instalasi (4 Langkah Cepat)
 
 ### Langkah 1: Unduh / Clone Repositori
 Tempatkan folder `pasien-mobile` ini di dalam struktur web server SIMGOS Anda:
 ```bash
 # Contoh direktori pada instalasi standar SIMGOS 2:
 cd /var/www/html/production/webapps/application/
-git clone https://github.com/<username>/simgos-pasien-mobile.git pasien-mobile
+git clone https://github.com/zoneikhlas-tech/pasien-mobile.git pasien-mobile
 ```
 *(Atau pada Windows: `D:\SIMGOS\production\webapps\application\pasien-mobile`)*
 
@@ -96,12 +96,38 @@ return [
 > [!NOTE]
 > File `db.local.php` sudah otomatis terdaftar dalam `.gitignore` sehingga data kredensial database rumah sakit Anda tidak akan pernah bocor ke publik saat melakukan push ke Git repository.
 
+### Langkah 4: Migrasi Tabel Database (`regonline.pasien_auth`)
+Aplikasi telah dilengkapi fitur *auto-create table*, namun untuk lingkungan *production* yang membatasi hak akses DDL user database, administrator disarankan mengeksekusi skrip SQL yang telah disediakan:
+```bash
+mysql -u root -p regonline < database/schema_pasien_auth.sql
+```
+
+---
+
+## 🗄️ Skema Database Autentikasi (`regonline.pasien_auth`)
+
+Portal PasienKu mengisolasi kredensial autentikasi pada skema database `regonline` agar terpisah rapi dari data rekam medis utama:
+
+| Kolom | Tipe Data | Keterangan |
+| :--- | :--- | :--- |
+| `NORM` | `INT(11)` | **Primary Key**. Nomor Rekam Medis pasien (`master.pasien.NORM`). |
+| `PIN_HASH` | `VARCHAR(255)` | Hash PIN 6-Digit menggunakan enkripsi satu arah **Bcrypt**. |
+| `SALAH_INPUT` | `INT(11)` | Counter kesalahan input PIN berturut-turut (reset ke `0` saat login berhasil). |
+| `TERKUNCI_HINGGA` | `DATETIME NULL` | Batas waktu akun dibekukan sementara jika salah memasukkan PIN 5 kali. |
+| `TERAKHIR_LOGIN` | `DATETIME NULL` | Timestamp aktivitas login terakhir pasien. |
+| `DIBUAT_TANGGAL` | `DATETIME` | Waktu pertama kali pasien melakukan aktivasi PIN. |
+| `DIPERBARUI_TANGGAL` | `DATETIME` | Waktu terakhir PIN diubah atau diperbarui. |
+
+DDL lengkap tersedia pada file: [database/schema_pasien_auth.sql](file:///d:/SIMGOS/production/webapps/application/pasien-mobile/database/schema_pasien_auth.sql).
+
+---
+
 ## 🌐 Cara Mengakses & Menjalankan
 
-### A. Melalui Web Server Rumah Sakit (Apache / Nginx / IIS)
+### A. Melalui Web Server Rumah Sakit (Apache / Nginx / IIS / Cloudflare Tunnel)
 Aplikasi dapat langsung diakses oleh pasien melalui URL alias:
 ```
-http://<IP_ATAU_DOMAIN_WEBAPPS_RS>/application/pasien-mobile/
+https://pasien.namars.go.id/application/pasien-mobile/
 ```
 
 ### B. Uji Coba Cepat (Local Development)
@@ -120,11 +146,44 @@ Pasien dapat mengunduh dan memasang aplikasi ini langsung di layar utama smartph
 
 ---
 
-## 🔐 Keamanan & Akses Pasien
-Aplikasi mengusung metode autentikasi **Zero-Friction & High Security** yang ramah pasien (terutama pasien lansia yang sering lupa kata sandi):
-1. **No. Rekam Medis (No. RM)** atau **16 Digit NIK KTP**.
-2. **Tanggal Lahir Pasien** (Verifikasi ganda kecocokan data rekam medis).
-3. **4 Digit Terakhir No. Handphone** (Verifikasi kepemilikan nomor telepon terdaftar).
+## 🔐 Arsitektur Keamanan & Proteksi Data Medis Pasien
+
+Portal PasienKu menerapkan prinsip **Defense in Depth** dan **Privacy by Design** untuk melindungi kerahasiaan data medis pasien sesuai standar kepatuhan regulasi kesehatan:
+
+### 1. Sistem Autentikasi 6-Digit PIN (Bcrypt) & Anti-Brute Force
+* Pasien masuk menggunakan kombinasi No. Rekam Medis / NIK KTP dan **6-Digit PIN Pribadi**.
+* PIN diamankan menggunakan algoritma enkripsi satu arah standar industri **Bcrypt** (`PASSWORD_BCRYPT`).
+* **Proteksi Lockout**: Jika terjadi kesalahan input PIN sebanyak **5 kali berturut-turut**, akun secara otomatis dibekukan (*locked*) selama **15 menit** demi melindungi rekam medis dari serangan tebak PIN / *dictionary attack*.
+
+### 2. Kebijakan Aktivasi & Reset PIN Ketat (Opsi 3)
+* **Aktivasi Pasien Baru**: Pasien yang baru pertama kali mengakses portal diwajibkan melakukan verifikasi identitas (Kecocokan Tanggal Lahir dan 4 Digit Terakhir No. HP terdaftar di RS).
+* **Anti-Reset dari Publik**: Demi mencegah pembajakan akun dan rekam medis oleh pihak yang mengetahui data KTP pasien, **tombol lupa PIN mandiri di halaman login ditiadakan**. Akun yang sudah memiliki PIN aktif **tidak dapat di-reset dari publik luar**.
+* **Ubah PIN Mandiri**: Pengubahan PIN hanya dapat dilakukan dari dalam menu **Profil & Kartu** setelah pasien berhasil login (wajib memasukkan PIN lama).
+* Pasien yang benar-benar lupa PIN dapat melakukan verifikasi fisik tatap muka di Loket Admisi / Rekam Medis RS.
+
+### 3. Stateless HMAC Verification Token
+* Untuk menjamin kestabilan alur aktivasi akun saat diakses melalui arsitektur multi-server, reverse proxy, atau **Cloudflare Tunnel**, penerbitan token sesi verifikasi menggunakan kriptografi **HMAC-SHA256** bertenggang waktu 30 menit (`verify_token`).
+
+### 4. Pencegahan IDOR / BOLA pada Dokumen Medis PDF
+* Seluruh endpoint unduh/stream dokumen PDF (Resume Medis, Surat Keterangan Sakit, Surat Sehat, Surat Kontrol SKDP, Hasil Laboratorium, dan Hasil Radiologi) menerapkan **verifikasi otorisasi kepemilikan ketat**.
+* Sistem memastikan kunjungan dan tindakan medis yang diminta terikat langsung dengan `NORM` pasien yang terotentikasi di sesi. Akses ke dokumen milik pasien lain otomatis ditolak dengan status **HTTP 403 Forbidden**.
+
+### 5. Pengerasan Session Cookie & HTTP Security Headers
+* **Cookie Flags**: Menggunakan nama sesi mandiri `SIMGOS_PASIEN_SESS` dengan parameter `HttpOnly` (mencegah pencurian cookie via XSS), `SameSite=Lax` (anti-CSRF), dan `Secure` (wajib HTTPS).
+* **Anti-Session Fixation**: Fungsi `session_regenerate_id(true)` otomatis dieksekusi saat login PIN dan aktivasi PIN berhasil.
+* **Inactivity Auto-Logout (30 Menit)**: Sesi login pasien otomatis berakhir jika tidak ada aktivitas selama 30 menit demi mencegah kebocoran data saat gawai ditinggalkan.
+* **HTTP Headers**:
+  * `X-Frame-Options: SAMEORIGIN` (Anti-Clickjacking / pencegahan iframe luar).
+  * `X-Content-Type-Options: nosniff` (Anti-MIME Sniffing).
+  * `Referrer-Policy: strict-origin-when-cross-origin`.
+  * `Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+  * **CORS**: Dibatasi ketat hanya untuk domain resmi rumah sakit.
+
+### 6. Rate Limiting & Anti-Enumeration (Anti-Scraping)
+* Endpoint pencarian identitas (`check_identifier`) dibatasi maksimal **20 request/menit per IP** untuk menggagalkan bot/skrip yang mencoba menebak No. RM secara massal.
+* Endpoint verifikasi identitas dibatasi **15 request/menit per IP**, dan login PIN dibatasi **30 request/menit per IP**.
+* **Penyensoran Nama Pra-Login**: Sebelum PIN dimasukkan, backend hanya menampilkan inisial/nama tersensor (contoh: `"NADRAENI P. Y."`). Nama lengkap dan rincian data hanya disajikan setelah pasien berhasil lolos verifikasi PIN.
+* **Perlindungan Privasi Kontak**: Backend tidak pernah membocorkan digit nomor kontak pasien ke browser publik.
 
 ---
 

@@ -354,13 +354,13 @@
                         <div>
                             <div class="flex justify-between items-center mb-1.5">
                                 <label class="text-xs font-bold text-slate-700">4 Digit Terakhir No. HP</label>
-                                <span id="verify-phone-hint" class="text-[11px] text-slate-400 font-medium">Contoh: •••• 0719</span>
+                                <span id="verify-phone-hint" class="text-[11px] text-slate-400 font-medium">Wajib terdaftar di RS</span>
                             </div>
                             <div class="relative">
                                 <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                                     <i data-lucide="phone" class="w-4 h-4"></i>
                                 </div>
-                                <input type="tel" id="input-phone" maxlength="4" pattern="[0-9]*" placeholder="•••• 0719" 
+                                <input type="tel" id="input-phone" maxlength="4" pattern="[0-9]*" placeholder="Contoh: 1234" 
                                     class="w-full pl-10 pr-3.5 py-3 rounded-xl border border-slate-200/90 text-sm font-mono font-bold tracking-wider text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all duration-200 bg-slate-50/70 focus:bg-white">
                             </div>
                             <p class="text-[11px] text-slate-400 mt-1">Masukkan 4 angka terakhir nomor HP yang terdaftar di RS.</p>
@@ -2854,7 +2854,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.13').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.14').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -3065,7 +3065,6 @@
                 authFlowState.norm = d.norm;
                 authFlowState.nama = d.nama || d.nama_display || 'Pasien';
                 authFlowState.has_pin = !!d.has_pin;
-                authFlowState.phone_hint = d.phone_hint || '';
 
                 if (d.is_locked) {
                     showLoginError(`Akun Anda terkunci sementara hingga ${d.locked_until || (d.lock_remaining_minutes ? d.lock_remaining_minutes + ' menit lagi' : '15 menit ke depan')} karena salah memasukkan PIN berulang kali. Silakan coba lagi nanti.`);
@@ -3089,7 +3088,7 @@
                     if (badgeEl) badgeEl.textContent = 'Aktivasi PIN';
                     if (titleEl) titleEl.textContent = 'Aktivasi 6-Digit PIN PasienKu';
                     if (descEl)  descEl.textContent  = 'Nomor Rekam Medis Anda belum memiliki PIN. Verifikasi identitas Anda untuk mengamankan rekam medis.';
-                    if (hintEl)  hintEl.textContent  = d.phone_hint ? 'Format terdaftar: ' + d.phone_hint : 'Contoh: •••• 0719';
+                    if (hintEl)  hintEl.textContent  = 'Wajib terdaftar di RS';
 
                     switchAuthStep('verify');
                 }

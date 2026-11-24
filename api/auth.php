@@ -324,22 +324,18 @@ if ($action === 'check_identifier') {
         } catch (Exception $e) {}
     }
 
-    // Ambil petunjuk 4 digit nomor HP
-    $phoneHint = '';
+    // Cek apakah pasien memiliki nomor HP terdaftar (tanpa membocorkan nomor/digit ke publik)
+    $hasRegisteredPhone = false;
     try {
         $stmtHp = $pdoMaster->prepare("
-            SELECT NOMOR 
+            SELECT 1 
             FROM master.kontak_pasien 
             WHERE NORM = :norm AND JENIS IN (1, 2, 3) AND NOMOR IS NOT NULL AND TRIM(NOMOR) != '' 
             LIMIT 1
         ");
         $stmtHp->execute([':norm' => $norm]);
-        $rawHp = $stmtHp->fetchColumn();
-        if ($rawHp) {
-            $cleanP = preg_replace('/[^0-9]/', '', $rawHp);
-            if (strlen($cleanP) >= 4) {
-                $phoneHint = '•••• ' . substr($cleanP, -4);
-            }
+        if ($stmtHp->fetchColumn()) {
+            $hasRegisteredPhone = true;
         }
     } catch (Exception $e) {}
 
@@ -353,7 +349,7 @@ if ($action === 'check_identifier') {
         'has_pin'               => $hasPin,
         'is_locked'             => $isLocked,
         'lock_remaining_minutes'=> $lockRemainingMinutes,
-        'phone_hint'            => $phoneHint ?: '•••• terdaftar'
+        'has_phone'             => $hasRegisteredPhone
     ];
 
     PasienConfig::jsonResponse(array_merge([

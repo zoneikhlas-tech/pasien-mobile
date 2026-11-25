@@ -139,10 +139,23 @@
             scrollbar-width: none;  /* Firefox */
         }
         .pb-safe {
-            padding-bottom: env(safe-area-inset-bottom, 16px);
+            padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
         }
         .pt-safe {
-            padding-top: env(safe-area-inset-top, 16px);
+            padding-top: max(env(safe-area-inset-top, 0px), 16px);
+        }
+        /* iOS Notch / Dynamic Island & Home Indicator Safe Area Controls */
+        .pdf-header-safe {
+            padding-top: calc(max(env(safe-area-inset-top, 0px), 12px) + 6px);
+            padding-bottom: 12px;
+            padding-left: max(env(safe-area-inset-left, 0px), 14px);
+            padding-right: max(env(safe-area-inset-right, 0px), 14px);
+        }
+        .pdf-footer-safe {
+            padding-top: 10px;
+            padding-bottom: calc(max(env(safe-area-inset-bottom, 0px), 12px) + 6px);
+            padding-left: max(env(safe-area-inset-left, 0px), 16px);
+            padding-right: max(env(safe-area-inset-right, 0px), 16px);
         }
 
         /* Medical Grade Surface Classes */
@@ -1600,25 +1613,25 @@
     <!-- ============================================================== -->
     <!-- MODAL IN-APP PDF VIEWER (Canvas PDF.js - 100% In-App PWA Mobile) -->
     <!-- ============================================================== -->
-    <div id="modal-pdf-viewer" class="hidden fixed inset-0 z-[100] bg-slate-950 flex flex-col transition-all duration-200">
-        <!-- Top App Bar Fixed Header -->
-        <header class="bg-slate-900 border-b border-slate-800 px-3.5 py-2.5 flex items-center justify-between text-white shrink-0 shadow-md">
-            <button type="button" onclick="closePdfViewer()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs transition">
+    <div id="modal-pdf-viewer" class="hidden fixed inset-0 z-[100] bg-slate-950 flex flex-col h-[100dvh] w-full overscroll-contain transition-all duration-200">
+        <!-- Top App Bar Fixed Header with iOS Safe Area Protection -->
+        <header class="bg-slate-900 border-b border-slate-800 pdf-header-safe flex items-center justify-between text-white shrink-0 shadow-md gpu-layer">
+            <button type="button" onclick="closePdfViewer()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white font-bold text-xs transition shrink-0" title="Kembali">
                 <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                <span>Kembali</span>
+                <span class="font-extrabold">Kembali</span>
             </button>
-            <div class="flex-1 px-3 text-center truncate">
+            <div class="flex-1 px-2.5 text-center truncate min-w-0">
                 <h3 id="pdf-viewer-title" class="text-xs font-extrabold text-white truncate">Dokumen Medis</h3>
                 <span id="pdf-viewer-subtitle" class="text-[10px] text-teal-300 block truncate font-medium">Memuat dokumen...</span>
             </div>
             <div class="flex items-center gap-1.5 shrink-0">
-                <button type="button" id="btn-pdf-qr-zoom" onclick="openPdfQrZoom()" class="hidden px-2.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-[11px] font-black flex items-center gap-1 active:scale-95 transition shadow-xs" title="Perbesar QR Code untuk Scan Mesin APM">
+                <button type="button" id="btn-pdf-qr-zoom" onclick="openPdfQrZoom()" class="hidden px-2.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black flex items-center gap-1 active:scale-95 transition shadow-xs" title="Perbesar QR Code untuk Scan Mesin APM">
                     <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
-                    <span class="hidden sm:inline">QR Scan</span>
+                    <span class="text-[11px] font-black">QR Scan</span>
                 </button>
-                <button type="button" onclick="downloadCurrentPdf()" class="px-2.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition" title="Unduh PDF">
+                <button type="button" onclick="downloadCurrentPdf()" class="px-3 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold flex items-center gap-1.5 active:scale-95 transition shrink-0 shadow-sm" title="Unduh Berkas PDF">
                     <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                    <span class="hidden sm:inline">Unduh</span>
+                    <span class="text-[11px] font-bold">Unduh</span>
                 </button>
             </div>
         </header>
@@ -1647,15 +1660,15 @@
             <div id="pdf-viewer-pages" class="w-full space-y-3 pb-6 flex flex-col items-center"></div>
         </div>
 
-        <!-- Bottom Zoom Toolbar -->
-        <footer class="bg-slate-900 border-t border-slate-800 px-4 py-2 flex items-center justify-center gap-2 shrink-0 text-white">
-            <button type="button" onclick="zoomPdfViewer(-0.25)" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition" title="Perkecil">
+        <!-- Bottom Zoom Toolbar with iOS Home Indicator Protection -->
+        <footer class="bg-slate-900 border-t border-slate-800 pdf-footer-safe flex items-center justify-center gap-2.5 shrink-0 text-white gpu-layer">
+            <button type="button" onclick="zoomPdfViewer(-0.25)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition" title="Perkecil">
                 <i data-lucide="zoom-out" class="w-4 h-4"></i>
             </button>
-            <button type="button" onclick="zoomPdfViewer(0)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-extrabold tabular-nums min-w-[68px] text-center transition" title="Reset Zoom (Fit Lebar)">
+            <button type="button" onclick="zoomPdfViewer(0)" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-extrabold tabular-nums min-w-[68px] text-center transition" title="Reset Zoom (Fit Lebar)">
                 <span id="pdf-viewer-zoom-label">100%</span>
             </button>
-            <button type="button" onclick="zoomPdfViewer(0.25)" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition" title="Perbesar">
+            <button type="button" onclick="zoomPdfViewer(0.25)" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 transition" title="Perbesar">
                 <i data-lucide="zoom-in" class="w-4 h-4"></i>
             </button>
         </footer>
@@ -2202,9 +2215,13 @@
             a.href = href;
             const safeName = (pdfViewerState.title || 'Dokumen-PasienKu').replace(/[^A-Za-z0-9_-]+/g, '_') + '.pdf';
             a.download = safeName;
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
             document.body.appendChild(a);
             a.click();
-            a.remove();
+            setTimeout(() => {
+                if (document.body.contains(a)) a.remove();
+            }, 150);
         }
 
         function closePdfViewer(triggerHistory = true) {
@@ -2909,7 +2926,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.20').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.21').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }

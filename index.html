@@ -477,14 +477,10 @@
             </div>
         </div>
 
-        <!-- Switch Link ke Portal Nakes & Developer Credit -->
-        <div class="py-6 text-center space-y-2">
-            <p class="text-xs text-slate-500">
-                Anda Dokter atau Tenaga Kesehatan?
-                <a href="../" class="font-bold text-teal-600 hover:text-teal-700 hover:underline ml-1">Masuk ke Portal Nakes</a>
-            </p>
+        <!-- Developer Credit & Info RS -->
+        <div class="py-6 text-center">
             <p class="text-[11px] text-slate-400 font-medium">
-                Dikembangkan oleh <span class="font-bold text-slate-600">Suriyandi</span> • SIRS RS Ben Mboi Kupang
+                Dikembangkan oleh <span class="font-bold text-slate-600">Suriyandi</span> • SIRS RSUP dr. Ben Mboi Kupang
             </p>
         </div>
     </div>
@@ -2913,7 +2909,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.19').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.20').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }

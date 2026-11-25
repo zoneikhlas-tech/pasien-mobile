@@ -49,10 +49,9 @@ try {
             }
 
             if (!empty($search)) {
-                $whereConditions[] = "(h.NM_DOKTER LIKE :q OR pb.NMPOLI LIKE :q2 OR pb.NMSUBSPESIALIS LIKE :q3 OR r.DESKRIPSI LIKE :q4)";
+                $whereConditions[] = "(h.NM_DOKTER LIKE :q OR pb.NMPOLI LIKE :q2 OR r.DESKRIPSI LIKE :q4)";
                 $params[':q']  = '%' . $search . '%';
                 $params[':q2'] = '%' . $search . '%';
-                $params[':q3'] = '%' . $search . '%';
                 $params[':q4'] = '%' . $search . '%';
             }
 
@@ -63,7 +62,7 @@ try {
                            h.NM_DOKTER,
                            h.KD_SUB_SPESIALIS,
                            h.KD_POLI,
-                           COALESCE(NULLIF(pb.NMSUBSPESIALIS, ''), pb.NMPOLI, r.DESKRIPSI, h.KD_SUB_SPESIALIS) as NAMA_POLI,
+                           COALESCE(NULLIF(r.DESKRIPSI, ''), NULLIF(pb.NMPOLI, ''), NULLIF(pb.NMSUBSPESIALIS, ''), h.KD_SUB_SPESIALIS) as NAMA_POLI,
                            r.ID as RUANGAN_RS_ID,
                            h.HARI,
                            h.NM_HARI,
@@ -74,9 +73,9 @@ try {
                            COALESCE(h.KOUTA_JKN, 40) as KUOTA_JKN,
                            COALESCE(h.KOUTA_NON_JKN, 10) as KUOTA_NON_JKN
                     FROM regonline.jadwal_dokter_hfis h
-                    LEFT JOIN regonline.poli_bpjs pb ON (pb.KDSUBSPESIALIS = h.KD_SUB_SPESIALIS OR pb.KDPOLI = h.KD_POLI)
                     LEFT JOIN master.penjamin_ruangan pr ON (pr.RUANGAN_PENJAMIN = h.KD_SUB_SPESIALIS OR pr.RUANGAN_PENJAMIN = h.KD_POLI) AND pr.PENJAMIN = 2
                     LEFT JOIN master.ruangan r ON r.ID = pr.RUANGAN_RS
+                    LEFT JOIN regonline.poli_bpjs pb ON (pb.KDPOLI = h.KD_POLI AND (pb.KDSUBSPESIALIS = '' OR pb.KDSUBSPESIALIS = h.KD_SUB_SPESIALIS))
                     WHERE {$whereSql}
                     GROUP BY h.KD_DOKTER, h.HARI, h.KD_SUB_SPESIALIS
                     ORDER BY NAMA_POLI ASC, h.HARI ASC, h.JAM ASC";
@@ -85,16 +84,16 @@ try {
             $stmt->execute($params);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Ambil daftar poliklinik unik untuk filter dropdown
-            $sqlPoli = "SELECT DISTINCT COALESCE(NULLIF(pb.NMSUBSPESIALIS, ''), pb.NMPOLI, r.DESKRIPSI, h.KD_SUB_SPESIALIS) as NAMA_POLI,
-                               h.KD_SUB_SPESIALIS as KODE_POLI,
+            // Ambil daftar poliklinik unik untuk filter dropdown (Prioritas Nama Ruangan SIMRS)
+            $sqlPoli = "SELECT DISTINCT COALESCE(NULLIF(r.DESKRIPSI, ''), NULLIF(pb.NMPOLI, ''), h.KD_SUB_SPESIALIS) as NAMA_POLI,
+                               COALESCE(r.ID, h.KD_SUB_SPESIALIS) as KODE_POLI,
                                r.ID as RUANGAN_RS_ID
                         FROM regonline.jadwal_dokter_hfis h
-                        LEFT JOIN regonline.poli_bpjs pb ON (pb.KDSUBSPESIALIS = h.KD_SUB_SPESIALIS OR pb.KDPOLI = h.KD_POLI)
                         LEFT JOIN master.penjamin_ruangan pr ON (pr.RUANGAN_PENJAMIN = h.KD_SUB_SPESIALIS OR pr.RUANGAN_PENJAMIN = h.KD_POLI) AND pr.PENJAMIN = 2
                         LEFT JOIN master.ruangan r ON r.ID = pr.RUANGAN_RS
+                        LEFT JOIN regonline.poli_bpjs pb ON (pb.KDPOLI = h.KD_POLI AND (pb.KDSUBSPESIALIS = '' OR pb.KDSUBSPESIALIS = h.KD_SUB_SPESIALIS))
                         WHERE (h.STATUS = 1 OR h.STATUS IS NULL)
-                        GROUP BY KODE_POLI
+                        GROUP BY NAMA_POLI
                         ORDER BY NAMA_POLI ASC";
             $stmtPoli = $pdo->query($sqlPoli);
             $poliList = $stmtPoli->fetchAll(PDO::FETCH_ASSOC);

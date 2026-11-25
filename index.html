@@ -2480,6 +2480,7 @@
                 const targetPoli = jadwalDokterState.filterPoli.toLowerCase();
                 filtered = filtered.filter(it => 
                     (it.kode_poli || '').toLowerCase() === targetPoli ||
+                    (it.ruangan_rs_id || '').toLowerCase() === targetPoli ||
                     (it.nama_poli || '').toLowerCase().includes(targetPoli)
                 );
             }
@@ -2912,7 +2913,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.18').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.19').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }

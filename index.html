@@ -62,18 +62,45 @@
         * {
             box-sizing: border-box;
         }
-        html, body {
+        html {
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        body {
             overflow-x: hidden;
             max-width: 100vw;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             background-color: #f8fafc;
-            background-image: 
-                radial-gradient(ellipse at 50% 0%, rgba(15, 118, 110, 0.05) 0%, transparent 60%),
-                radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.03) 0%, transparent 40%);
-            background-attachment: fixed;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+            touch-action: pan-y;
+        }
+        /* Hardware-accelerated background without scroll repainting overhead */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-image: 
+                radial-gradient(ellipse at 50% 0%, rgba(15, 118, 110, 0.04) 0%, transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(14, 165, 233, 0.02) 0%, transparent 40%);
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
+        }
+        /* Touch responsiveness optimization (removes 300ms tap delay) */
+        button, a, input, select, textarea, [role="button"], .nav-item {
+            touch-action: manipulation;
+        }
+        /* Hardware acceleration layer promotion for fixed & sticky bars */
+        .gpu-layer {
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
         }
         input, select, textarea {
             user-select: text;
@@ -122,8 +149,9 @@
         .card-luxury {
             background: #ffffff;
             border: 1px solid rgba(226, 232, 240, 0.85);
-            box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
+            box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04);
             border-radius: 1.25rem;
+            contain: layout style;
         }
         .pin-dot {
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -181,11 +209,12 @@
         }
 
         .nav-dock {
-            background: rgba(255, 255, 255, 0.94);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.98);
             border-top: 1px solid rgba(226, 232, 240, 0.9);
-            box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.04);
+            box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.04);
+            transform: translateZ(0);
+            -webkit-transform: translateZ(0);
+            will-change: transform;
         }
         .card-hologram {
             position: relative;
@@ -225,8 +254,7 @@
                         <i data-lucide="heart-pulse" class="w-7 h-7"></i>
                     </div>
                     <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span>
+                        <span class="w-3 h-3 rounded-full bg-emerald-500 border-2 border-white ring-1 ring-emerald-400/50"></span>
                     </span>
                 </div>
                 <div>
@@ -465,8 +493,8 @@
     <!-- VIEW 2: DASHBOARD UTAMA PASIEN                                 -->
     <!-- ============================================================== -->
     <div id="view-dashboard" class="hidden flex-1 flex flex-col pb-28 sm:pb-24">
-        <!-- Top App Header (Clean Healthcare Glassmorphism) -->
-        <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-slate-200/70 px-4 py-3 shadow-xs">
+        <!-- Top App Header (Clean Healthcare Solid Surface with Hardware Acceleration) -->
+        <header class="sticky top-0 z-30 bg-white border-b border-slate-200/80 px-4 py-3 shadow-xs gpu-layer">
             <div class="max-w-md mx-auto flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <div class="relative shrink-0">
@@ -601,12 +629,10 @@
                 </div>
 
                 <!-- Kartu Jadwal Kontrol Dokter Mendatang (Pengingat Pasien VIP Boarding Pass) -->
-                <div id="card-jadwal-kontrol" class="hidden rounded-3xl bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950 text-white p-5 shadow-xl shadow-teal-950/20 space-y-3.5 relative overflow-hidden border border-teal-500/25">
-                    <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
+                <div id="card-jadwal-kontrol" class="hidden rounded-3xl bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950 text-white p-5 shadow-lg shadow-teal-950/20 space-y-3.5 relative overflow-hidden border border-teal-500/25">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-1.5 text-xs font-bold text-teal-200">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                             <span class="uppercase tracking-wider text-[10px] font-extrabold">JADWAL KONTROL DOKTER (SKDP)</span>
                         </div>
                         <span id="kontrol-sisa-badge" class="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 text-teal-950 shadow-sm">
@@ -619,7 +645,7 @@
                         <p id="kontrol-tgl-jam" class="text-xs text-teal-200 font-semibold mt-1">Rabu, 25 November 2026 • 08:00 WITA</p>
                     </div>
 
-                    <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs shadow-inner">
+                    <div class="bg-white/10 rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs">
                         <div class="flex justify-between items-center gap-2">
                             <span class="text-teal-200/90 shrink-0">Dokter DPJP:</span>
                             <span id="kontrol-dokter-nama" class="font-extrabold text-white text-right truncate min-w-0 flex-1">-</span>
@@ -643,7 +669,7 @@
                         </button>
 
                         <!-- Box Notifikasi Antrean Sudah Terbit -->
-                        <div id="box-kontrol-sudah-antri" class="hidden bg-emerald-900/60 backdrop-blur-md border border-emerald-400/40 rounded-2xl p-3 flex items-center justify-between text-xs shadow-sm">
+                        <div id="box-kontrol-sudah-antri" class="hidden bg-emerald-900/90 border border-emerald-400/40 rounded-2xl p-3 flex items-center justify-between text-xs shadow-sm">
                             <div class="flex items-center gap-2.5">
                                 <div class="w-9 h-9 rounded-xl bg-emerald-400 text-teal-950 flex items-center justify-center font-black shrink-0 shadow">
                                     <i data-lucide="check-circle-2" class="w-5 h-5"></i>
@@ -668,15 +694,10 @@
                 </div>
 
                 <!-- Live Antrean Poli Hari Ini / Mendatang (Apple Live Activity Widget) -->
-                <div id="card-antrean-hari-ini" onclick="switchTab('antrean')" class="hidden rounded-3xl bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-5 shadow-xl shadow-slate-900/20 space-y-2.5 cursor-pointer active:scale-98 transition duration-150 border border-teal-500/25 relative overflow-hidden">
-                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-teal-500/10 rounded-full blur-xl pointer-events-none"></div>
-
+                <div id="card-antrean-hari-ini" onclick="switchTab('antrean')" class="hidden rounded-3xl bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white p-5 shadow-lg shadow-slate-900/20 space-y-2.5 cursor-pointer active:scale-98 transition duration-150 border border-teal-500/25 relative overflow-hidden">
                     <div class="flex justify-between items-center text-xs font-bold gap-2">
                         <span class="flex items-center gap-2 shrink-0">
-                            <span class="relative flex h-2.5 w-2.5">
-                              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                            </span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-emerald-400/40"></span>
                             <span id="antrean-card-title" class="font-extrabold tracking-wide uppercase text-[10px] text-teal-200">Antrean Poli</span>
                         </span>
                         <span id="antrean-poli-nama" class="truncate min-w-0 flex-1 text-right font-bold text-[11px] bg-white/15 px-2.5 py-0.5 rounded-full border border-white/10">Poli</span>
@@ -703,12 +724,10 @@
                 </div>
 
                 <!-- Status Rawat Inap Aktif Banner -->
-                <div id="card-status-ranap" class="rounded-3xl bg-gradient-to-br from-teal-800 via-teal-900 to-emerald-950 text-white p-5 shadow-xl shadow-teal-950/20 relative overflow-hidden border border-teal-500/25">
-                    <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-emerald-400/10 rounded-full blur-xl pointer-events-none"></div>
-
+                <div id="card-status-ranap" class="rounded-3xl bg-gradient-to-br from-teal-800 via-teal-900 to-emerald-950 text-white p-5 shadow-lg shadow-teal-950/20 relative overflow-hidden border border-teal-500/25">
                     <div class="flex justify-between items-start gap-2 mb-3">
-                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm text-xs font-bold border border-white/15">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-bold border border-white/15">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                             <span id="ranap-status-badge">Sedang Dirawat Inap</span>
                         </div>
                         <span id="ranap-lama-rawat" class="text-xs font-black text-teal-200 bg-teal-950/60 border border-teal-400/20 px-3 py-1 rounded-full">Hari ke-1</span>
@@ -719,7 +738,7 @@
                         <p id="ranap-bed-info" class="text-xs text-teal-100/90 font-medium">Kamar - • Bed -</p>
                     </div>
 
-                    <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs shadow-inner">
+                    <div class="bg-white/10 rounded-2xl p-3.5 space-y-2 border border-white/10 text-xs">
                         <div class="flex justify-between items-center gap-2">
                             <span class="text-teal-200/90 shrink-0">Dokter DPJP:</span>
                             <span id="ranap-dpjp" class="font-extrabold text-right text-white truncate min-w-0 flex-1">-</span>
@@ -1096,7 +1115,7 @@
                             <h4 id="stat-manfaat-penjamin" class="text-2xl font-black tracking-tight text-white mt-0.5">Memuat...</h4>
                             <span id="stat-kunjungan-count" class="text-xs text-teal-100 font-medium">- kunjungan terdaftar</span>
                         </div>
-                        <div class="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-white/20 shrink-0 shadow-inner">
+                        <div class="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center text-emerald-300 border border-white/20 shrink-0">
                             <i data-lucide="shield-check" class="w-6 h-6"></i>
                         </div>
                     </div>
@@ -1226,7 +1245,7 @@
                 <div class="card-hologram rounded-3xl p-5 text-white shadow-2xl relative overflow-hidden border border-teal-400/30">
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-white border border-white/20 shadow-inner">
+                            <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-white border border-white/20">
                                 <i data-lucide="shield-check" class="w-5 h-5 text-emerald-300"></i>
                             </div>
                             <div>
@@ -1255,19 +1274,19 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-2.5 text-xs mb-4">
-                        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-2.5 border border-white/10">
+                        <div class="bg-black/25 rounded-xl p-2.5 border border-white/10">
                             <span class="text-[9px] text-teal-200 block font-bold">No. Rekam Medis (RM)</span>
                             <span id="card-patient-rm" class="font-black text-white text-base font-mono tracking-wider">-</span>
                         </div>
-                        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-2.5 border border-white/10">
+                        <div class="bg-black/25 rounded-xl p-2.5 border border-white/10">
                             <span class="text-[9px] text-teal-200 block font-bold">NIK KTP</span>
                             <span id="card-patient-nik" class="font-extrabold text-white font-mono tracking-wide">-</span>
                         </div>
-                        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-2.5 border border-white/10">
+                        <div class="bg-black/25 rounded-xl p-2.5 border border-white/10">
                             <span class="text-[9px] text-teal-200 block font-bold">Tanggal Lahir</span>
                             <span id="card-patient-dob" class="font-bold text-white">-</span>
                         </div>
-                        <div class="bg-black/20 backdrop-blur-sm rounded-xl p-2.5 border border-white/10">
+                        <div class="bg-black/25 rounded-xl p-2.5 border border-white/10">
                             <span class="text-[9px] text-teal-200 block font-bold">Golongan Darah</span>
                             <span id="card-patient-goldar" class="font-black text-white text-sm">-</span>
                         </div>
@@ -1339,7 +1358,7 @@
         </main>
 
         <!-- Bottom Navigation Bar (Patient-Friendly Floating Dock) -->
-        <nav class="fixed bottom-0 left-0 right-0 z-40 nav-dock pb-safe">
+        <nav class="fixed bottom-0 left-0 right-0 z-40 nav-dock pb-safe gpu-layer">
             <div class="max-w-md mx-auto grid grid-cols-5 px-2 py-2 text-center gap-1">
                 <button onclick="switchTab('beranda')" id="nav-btn-beranda" class="nav-item flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl bg-teal-500/10 text-teal-700 font-extrabold transition-all duration-200">
                     <i data-lucide="home" class="w-5 h-5 mb-0.5"></i>
@@ -1368,8 +1387,8 @@
     <!-- ============================================================== -->
     <!-- MODAL BANTUAN CEK NO. RM                                       -->
     <!-- ============================================================== -->
-    <div id="modal-help-rm" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+    <div id="modal-help-rm" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div class="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-1 shrink-0"></div>
             <div class="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto shadow-sm">
                 <i data-lucide="help-circle" class="w-6 h-6"></i>
@@ -1403,8 +1422,8 @@
     <!-- ============================================================== -->
     <!-- MODAL PANGGIL PERAWAT / BANTUAN RUANGAN                        -->
     <!-- ============================================================== -->
-    <div id="modal-call-nurse" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+    <div id="modal-call-nurse" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div class="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-1 shrink-0"></div>
             <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
                 <i data-lucide="bell" class="w-6 h-6"></i>
@@ -1437,8 +1456,8 @@
     <!-- ============================================================== -->
     <!-- MODAL BOOKING INSTAN SKDP (Ambil Antrean 1-Klik)               -->
     <!-- ============================================================== -->
-    <div id="modal-instant-skdp" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4 max-h-[90vh] flex flex-col">
+    <div id="modal-instant-skdp" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90vh] flex flex-col">
             <div class="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-1 shrink-0"></div>
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2.5">
@@ -1522,8 +1541,8 @@
     <!-- ============================================================== -->
     <!-- MODAL DAFTAR RIWAYAT SURAT KONTROL (SKDP)                      -->
     <!-- ============================================================== -->
-    <div id="modal-riwayat-kontrol" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4 max-h-[85vh] flex flex-col">
+    <div id="modal-riwayat-kontrol" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[85vh] flex flex-col">
             <div class="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-1 shrink-0"></div>
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2.5">
@@ -1559,8 +1578,8 @@
     <!-- ============================================================== -->
     <!-- MODAL KONFIRMASI BATAL ANTREAN                                 -->
     <!-- ============================================================== -->
-    <div id="modal-cancel-antrean" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+    <div id="modal-cancel-antrean" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div class="w-12 h-1.5 rounded-full bg-slate-300 mx-auto mb-1 shrink-0"></div>
             <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
                 <i data-lucide="alert-triangle" class="w-6 h-6"></i>
@@ -1649,7 +1668,7 @@
     <!-- ============================================================== -->
     <!-- MODAL ZOOM QR CODE & BARCODE SCANNER APM (HIGH-CONTRAST)       -->
     <!-- ============================================================== -->
-    <div id="modal-qr-zoom" class="hidden fixed inset-0 z-[120] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-200" onclick="if(event.target === this) closeQrZoomModal()">
+    <div id="modal-qr-zoom" class="hidden fixed inset-0 z-[120] bg-slate-950/85 flex items-center justify-center p-4 transition-all duration-200" onclick="if(event.target === this) closeQrZoomModal()">
         <div class="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-200/90 text-center relative" onclick="event.stopPropagation()">
             <!-- Close Button -->
             <button type="button" onclick="closeQrZoomModal()" class="absolute right-3.5 top-3.5 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-500 hover:text-slate-800 flex items-center justify-center transition" title="Tutup">
@@ -1703,14 +1722,14 @@
     <!-- ============================================================== -->
     <!-- MODAL JADWAL DOKTER SPESIALIS (FULLSCREEN SHEET)               -->
     <!-- ============================================================== -->
-    <div id="modal-jadwal-dokter" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-200" onclick="if(event.target === this) closeModalJadwalDokter()">
+    <div id="modal-jadwal-dokter" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-200" onclick="if(event.target === this) closeModalJadwalDokter()">
         <div class="bg-slate-50 w-full max-w-lg h-[92vh] sm:h-[88vh] rounded-t-3xl sm:rounded-3xl flex flex-col shadow-2xl border border-white/40 overflow-hidden" onclick="event.stopPropagation()">
             <!-- Header Sheet -->
             <div class="p-4 bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-950 text-white shrink-0 relative">
                 <div class="w-12 h-1.5 rounded-full bg-white/30 mx-auto mb-2.5 sm:hidden"></div>
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-white/15">
+                        <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-emerald-300 border border-white/15">
                             <i data-lucide="calendar-days" class="w-5 h-5"></i>
                         </div>
                         <div>
@@ -1786,14 +1805,14 @@
     <!-- ============================================================== -->
     <!-- MODAL KETERSEDIAAN TEMPAT TIDUR RAWAT INAP (FULLSCREEN SHEET)  -->
     <!-- ============================================================== -->
-    <div id="modal-tempat-tidur" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-200" onclick="if(event.target === this) closeModalTempatTidur()">
+    <div id="modal-tempat-tidur" class="hidden fixed inset-0 z-50 bg-slate-950/80 flex items-end sm:items-center justify-center p-0 sm:p-4 transition-all duration-200" onclick="if(event.target === this) closeModalTempatTidur()">
         <div class="bg-slate-50 w-full max-w-lg h-[92vh] sm:h-[88vh] rounded-t-3xl sm:rounded-3xl flex flex-col shadow-2xl border border-white/40 overflow-hidden" onclick="event.stopPropagation()">
             <!-- Header Sheet -->
             <div class="p-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shrink-0 relative">
                 <div class="w-12 h-1.5 rounded-full bg-white/30 mx-auto mb-2.5 sm:hidden"></div>
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-indigo-300 border border-white/15">
+                        <div class="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center text-indigo-300 border border-white/15">
                             <i data-lucide="bed-double" class="w-5 h-5"></i>
                         </div>
                         <div>
@@ -1816,7 +1835,7 @@
                     </div>
                     <div class="p-2.5 rounded-2xl bg-emerald-50 border border-emerald-200/80">
                         <span class="text-[9px] font-black text-emerald-700 uppercase tracking-wider block flex items-center justify-center gap-1">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-400/40"></span>
                             <span>Kosong</span>
                         </span>
                         <span id="bed-kpi-kosong" class="text-lg font-black text-emerald-800 font-mono">-</span>
@@ -1874,8 +1893,8 @@
     <!-- ============================================================== -->
     <!-- MODAL UBAH 6-DIGIT PIN PASIEN                                   -->
     <!-- ============================================================== -->
-    <div id="modal-change-pin" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+    <div id="modal-change-pin" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
@@ -1929,8 +1948,8 @@
     <!-- ============================================================== -->
     <!-- MODAL BANTUAN LUPA PIN (KEAMANAN DATA REKAM MEDIS)             -->
     <!-- ============================================================== -->
-    <div id="modal-help-pin" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="card-luxury bg-white/95 backdrop-blur-xl rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-white/80 space-y-4">
+    <div id="modal-help-pin" class="hidden fixed inset-0 z-50 bg-slate-950/70 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
                     <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
@@ -2893,7 +2912,7 @@
 
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('./sw.js?v=2.1.17').then(reg => {
+                navigator.serviceWorker.register('./sw.js?v=2.1.18').then(reg => {
                     reg.update();
                 }).catch(() => {});
             }
@@ -4150,7 +4169,7 @@
             if (forceRefresh || suratMedisState.items.length === 0) {
                 container.innerHTML = `
                     <div class="card-luxury p-8 text-center space-y-3 border border-slate-200/80">
-                        <div class="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto animate-pulse">
+                        <div class="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
                             <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
                         </div>
                         <p class="text-xs text-slate-500 font-semibold">Memuat dokumen surat keterangan resmi...</p>
@@ -4559,7 +4578,7 @@
                 iconHtml = '<i data-lucide="alert-circle" class="w-4 h-4 text-rose-400 shrink-0"></i>';
             }
 
-            toastEl.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-3 rounded-2xl shadow-2xl border backdrop-blur-md transition-all duration-300 flex items-center gap-2.5 text-xs font-bold ${bgClass}`;
+            toastEl.className = `fixed bottom-20 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-3 rounded-2xl shadow-2xl border transition-all duration-300 flex items-center gap-2.5 text-xs font-bold ${bgClass}`;
             toastEl.innerHTML = `${iconHtml}<span class="flex-1 leading-snug">${message}</span>`;
             lucide.createIcons();
 
@@ -4950,12 +4969,10 @@
                 <div class="card-luxury overflow-hidden rounded-3xl border border-teal-500/30 shadow-2xl relative">
                     <!-- Top Section: Obsidian / Deep Emerald VIP Pass Header -->
                     <div class="bg-gradient-to-br from-teal-950 via-teal-900 to-emerald-950 p-5 text-white relative overflow-hidden space-y-4">
-                        <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
                         <!-- VIP Header -->
                         <div class="flex justify-between items-start gap-2 border-b border-white/10 pb-3">
                             <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center text-emerald-300 border border-white/20 shadow-inner">
+                                <div class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center text-emerald-300 border border-white/20">
                                     <i data-lucide="ticket" class="w-4 h-4"></i>
                                 </div>
                                 <div>
@@ -4963,7 +4980,7 @@
                                     <h4 class="text-sm font-extrabold text-white mt-0.5 leading-tight">${t.nama_poli}</h4>
                                 </div>
                             </div>
-                            <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${t.is_today ? 'bg-amber-400 text-amber-950 shadow-md animate-pulse' : 'bg-teal-500/30 text-teal-200 border border-teal-400/30'}">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${t.is_today ? 'bg-amber-400 text-amber-950 shadow-md' : 'bg-teal-500/30 text-teal-200 border border-teal-400/30'}">
                                 ${t.is_today ? 'Hari Ini' : 'Mendatang'}
                             </span>
                         </div>
@@ -4980,14 +4997,14 @@
                             </div>
                         </div>
 
-                        <!-- Dua Nomor Antrean (Loket & Poli) dalam Glass Cards -->
+                        <!-- Dua Nomor Antrean (Loket & Poli) -->
                         <div class="grid grid-cols-2 gap-3 pt-1">
-                            <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center space-y-0.5">
+                            <div class="bg-white/10 rounded-2xl p-3 border border-white/15 text-center space-y-0.5">
                                 <span class="text-[10px] text-teal-200 font-bold uppercase tracking-wider block">Loket / Adm</span>
                                 <span class="text-2xl font-black text-amber-300 font-mono tracking-tight">${t.no_antrian_loket || '-'}</span>
                                 <span class="text-[9px] text-teal-200/80 block">Check-in APM</span>
                             </div>
-                            <div class="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/15 text-center space-y-0.5">
+                            <div class="bg-white/10 rounded-2xl p-3 border border-white/15 text-center space-y-0.5">
                                 <span class="text-[10px] text-teal-200 font-bold uppercase tracking-wider block">Antrean Poli</span>
                                 <span class="text-2xl font-black text-emerald-300 font-mono tracking-tight">${t.no_antrian_poli || '-'}</span>
                                 <span class="text-[9px] text-teal-200/80 block">Ruang Poli DPJP</span>
@@ -4999,10 +5016,7 @@
                         <div class="bg-white/95 text-slate-800 rounded-2xl p-3.5 shadow-inner space-y-2">
                             <div class="flex justify-between items-center text-xs">
                                 <span class="flex items-center gap-1.5 font-extrabold text-slate-800">
-                                    <span class="relative flex h-2.5 w-2.5">
-                                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                      <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                                    </span>
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-400/40 shrink-0"></span>
                                     <span>Radar Antrean Poli</span>
                                 </span>
                                 <span class="text-[10px] font-black px-2.5 py-0.5 rounded-full ${t.status_panggilan && t.status_panggilan.includes('Dipanggil') ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">

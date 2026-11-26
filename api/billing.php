@@ -163,20 +163,45 @@ if ($action === 'summary' || $action === 'list') {
                 try {
                     $stmtTm = $pdoLayanan->prepare("
                         SELECT 
+                            tm.ID AS TM_ID,
                             t.NAMA AS NAMA_TINDAKAN,
                             DATE_FORMAT(tm.TANGGAL, '%d-%m-%Y %H:%i') AS WAKTU,
-                            COALESCE(r.DESKRIPSI, '') AS RUANGAN
+                            COALESCE(r.DESKRIPSI, '') AS RUANGAN,
+                            COALESCE(rt.TARIF, 0) AS TARIF,
+                            COALESCE(rt.JUMLAH, 1) AS JUMLAH,
+                            COALESCE(rt.DISKON, 0) AS DISKON,
+                            COALESCE((rt.TARIF * rt.JUMLAH) - rt.DISKON, 0) AS TOTAL_TARIF
                         FROM layanan.tindakan_medis tm
                         JOIN master.tindakan t ON t.ID = tm.TINDAKAN
                         JOIN pendaftaran.kunjungan k ON k.NOMOR = tm.KUNJUNGAN
                         JOIN pembayaran.tagihan_pendaftaran tp ON tp.PENDAFTARAN = k.NOPEN
                         LEFT JOIN master.ruangan r ON r.ID = k.RUANGAN
+                        LEFT JOIN pembayaran.rincian_tagihan rt ON rt.TAGIHAN = tp.TAGIHAN AND rt.REF_ID = tm.ID AND rt.STATUS = 1
                         WHERE tp.TAGIHAN = :tagihan_id AND tm.STATUS = 1
                         ORDER BY tm.TANGGAL ASC
-                        LIMIT 8
                     ");
                     $stmtTm->execute([':tagihan_id' => $b['TAGIHAN_ID']]);
-                    $tindakanList = $stmtTm->fetchAll(PDO::FETCH_ASSOC);
+                    $rawTm = $stmtTm->fetchAll(PDO::FETCH_ASSOC);
+
+                    foreach ($rawTm as $item) {
+                        $tarifVal = (float)$item['TARIF'];
+                        $totalVal = (float)$item['TOTAL_TARIF'];
+                        $tindakanList[] = [
+                            'id' => $item['TM_ID'],
+                            'nama_tindakan' => $item['NAMA_TINDAKAN'],
+                            'waktu' => $item['WAKTU'],
+                            'ruangan' => $item['RUANGAN'],
+                            'jumlah' => (float)$item['JUMLAH'],
+                            'tarif' => $tarifVal,
+                            'tarif_formatted' => formatRupiah($tarifVal),
+                            'total_tarif' => $totalVal,
+                            'total_tarif_formatted' => formatRupiah($totalVal),
+                            // Kompatibilitas atribut lama
+                            'NAMA_TINDAKAN' => $item['NAMA_TINDAKAN'],
+                            'WAKTU' => $item['WAKTU'],
+                            'RUANGAN' => $item['RUANGAN']
+                        ];
+                    }
                 } catch (Exception $e) {
                     $tindakanList = [];
                 }

@@ -471,9 +471,13 @@ if ($action === 'login_pin') {
     $_SESSION['pasien_user'] = $userData;
     $_SESSION['pasien_last_active'] = time();
 
+    // Buat Token Sesi Aman 30 Hari untuk Flutter Mobile Client
+    $mobileToken = PasienConfig::generateAuthToken($norm);
+
     PasienConfig::jsonResponse([
         'success' => true,
         'message' => 'Selamat datang kembali, ' . $pasien['NAMA'] . '!',
+        'token'   => $mobileToken,
         'data'    => $userData
     ]);
 }
@@ -684,9 +688,13 @@ if ($action === 'set_pin') {
     $_SESSION['pasien_user'] = $userData;
     $_SESSION['pasien_last_active'] = time();
 
+    // Buat Token Sesi Aman 30 Hari untuk Flutter Mobile Client
+    $mobileToken = PasienConfig::generateAuthToken($tempNorm);
+
     PasienConfig::jsonResponse([
         'success' => true,
         'message' => '6 Digit PIN PasienKu berhasil disimpan! Anda telah masuk.',
+        'token'   => $mobileToken,
         'data'    => $userData
     ]);
 }

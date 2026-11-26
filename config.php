@@ -28,11 +28,13 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// HTTP Security Headers (Anti-Clickjacking, MIME Sniffing, Referrer Policy)
+// HTTP Security & Anti-Cache Headers (Mencegah caching Cloudflare untuk data medis)
 header('X-Frame-Options: SAMEORIGIN');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 // CORS Protection (Hanya izinkan Origin yang sama atau domain resmi RS)
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -47,7 +49,7 @@ if (!empty($origin)) {
     header('Access-Control-Allow-Origin: *');
 }
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-App-Origin');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
@@ -268,7 +270,166 @@ class PasienConfig {
         exit;
     }
 
+    public static function generateAuthToken($norm, $lifetime = 2592000) {
+        $salt = 'SIMGOS_PASIEN_SECURE_TOKEN_2026';
+        $time = time();
+        $signature = hash_hmac('sha256', "{$norm}:{$time}:{$lifetime}", $salt);
+        return base64_encode("{$norm}:{$time}:{$lifetime}:{$signature}");
+    }
+
+    public static function verifyAuthToken($token) {
+        if (empty($token)) return null;
+        $decoded = base64_decode($token);
+        if (!$decoded) return null;
+        $parts = explode(':', $decoded);
+        $salt = 'SIMGOS_PASIEN_SECURE_TOKEN_2026';
+
+        if (count($parts) === 4) {
+            list($norm, $time, $lifetime, $signature) = $parts;
+            if (time() - (int)$time > (int)$lifetime) return null;
+            $expected = hash_hmac('sha256', "{$norm}:{$time}:{$lifetime}", $salt);
+            if (hash_equals($expected, $signature)) {
+                return (int)$norm;
+            }
+        } elseif (count($parts) === 3) {
+            list($norm, $time, $signature) = $parts;
+            if (time() - (int)$time > 2592000) return null;
+            $expected = hash_hmac('sha256', "{$norm}:{$time}", $salt);
+            if (hash_equals($expected, $signature)) {
+                return (int)$norm;
+            }
+        }
+        return null;
+    }
+
+    public static function getUserDataByNorm($norm) {
+        $pdoMaster = self::getConnection('master');
+        $pdoDaftar = self::getConnection('pendaftaran');
+        if (!$pdoMaster) return null;
+
+        try {
+            $stmt = $pdoMaster->prepare("
+                SELECT 
+                    p.NORM,
+                    p.NAMA,
+                    DATE(p.TANGGAL_LAHIR) AS TGL_LAHIR,
+                    p.TEMPAT_LAHIR,
+                    p.JENIS_KELAMIN,
+                    COALESCE(p.ALAMAT, '-') AS ALAMAT,
+                    p.GOLONGAN_DARAH
+                FROM master.pasien p
+                WHERE p.NORM = :norm AND p.STATUS = 1
+                LIMIT 1
+            ");
+            $stmt->execute([':norm' => (int)$norm]);
+            $pasien = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$pasien) return null;
+
+            // NIK
+            $nikVal = '-';
+            try {
+                $stmtNik = $pdoMaster->prepare("SELECT NOMOR FROM master.kartu_identitas_pasien WHERE NORM = :norm AND JENIS = 1 LIMIT 1");
+                $stmtNik->execute([':norm' => (int)$norm]);
+                $nikVal = $stmtNik->fetchColumn() ?: '-';
+            } catch (Exception $e) {}
+
+            // Gol Darah
+            $golDarahMap = [1 => 'A', 2 => 'B', 3 => 'AB', 4 => 'O'];
+            $golDarahTeks = $golDarahMap[$pasien['GOLONGAN_DARAH'] ?? 0] ?? '-';
+
+            // Rawat Inap Aktif
+            $rawatInapAktif = null;
+            if ($pdoDaftar !== null) {
+                try {
+                    $stmtRanap = $pdoDaftar->prepare("
+                        SELECT 
+                            k.NOMOR AS KUNJUNGAN_ID,
+                            k.NOPEN,
+                            r.DESKRIPSI AS RUANGAN,
+                            COALESCE(rk.KAMAR, '-') AS KAMAR,
+                            COALESCE(rkt.TEMPAT_TIDUR, '-') AS NO_BED,
+                            DATE_FORMAT(k.MASUK, '%d-%m-%Y %H:%i') AS TGL_MASUK,
+                            GREATEST(1, DATEDIFF(CURDATE(), DATE(k.MASUK)) + 1) AS LAMA_RAWAT,
+                            COALESCE(
+                                TRIM(CONCAT(IF(COALESCE(peg_dok.GELAR_DEPAN,'') != '', CONCAT(peg_dok.GELAR_DEPAN, '. '), ''), peg_dok.NAMA, IF(COALESCE(peg_dok.GELAR_BELAKANG,'') != '', CONCAT(', ', peg_dok.GELAR_BELAKANG), ''))),
+                                TRIM(CONCAT(IF(COALESCE(peg_dir.GELAR_DEPAN,'') != '', CONCAT(peg_dir.GELAR_DEPAN, '. '), ''), peg_dir.NAMA, IF(COALESCE(peg_dir.GELAR_BELAKANG,'') != '', CONCAT(', ', peg_dir.GELAR_BELAKANG), ''))),
+                                'Dokter DPJP'
+                            ) AS NAMA_DPJP
+                        FROM pendaftaran.kunjungan k
+                        JOIN pendaftaran.pendaftaran p ON p.NOMOR = k.NOPEN
+                        JOIN master.ruangan r ON r.ID = k.RUANGAN
+                        LEFT JOIN master.ruang_kamar_tidur rkt ON rkt.ID = k.RUANG_KAMAR_TIDUR
+                        LEFT JOIN master.ruang_kamar rk ON rk.ID = rkt.RUANG_KAMAR
+                        LEFT JOIN master.dokter dok ON dok.ID = k.DPJP
+                        LEFT JOIN master.pegawai peg_dok ON peg_dok.NIP = dok.NIP
+                        LEFT JOIN master.pegawai peg_dir ON peg_dir.ID = k.DPJP
+                        WHERE p.NORM = :norm 
+                          AND k.STATUS = 1 
+                          AND r.JENIS_KUNJUNGAN IN (2, 3)
+                          AND NOT EXISTS (
+                              SELECT 1 FROM layanan.pasien_pulang pp 
+                              WHERE pp.KUNJUNGAN = k.NOMOR AND pp.STATUS = 1
+                          )
+                        ORDER BY k.MASUK DESC 
+                        LIMIT 1
+                    ");
+                    $stmtRanap->execute([':norm' => (int)$norm]);
+                    $rawatInapAktif = $stmtRanap->fetch(PDO::FETCH_ASSOC);
+                } catch (Exception $e) {}
+            }
+
+            return [
+                'norm'                 => (int)$pasien['NORM'],
+                'norm_formatted'       => str_pad($pasien['NORM'], 8, '0', STR_PAD_LEFT),
+                'nama'                 => $pasien['NAMA'],
+                'tgl_lahir'            => $pasien['TGL_LAHIR'],
+                'tgl_lahir_indo'       => self::formatTglIndo($pasien['TGL_LAHIR'], false),
+                'jenis_kelamin'        => (int)$pasien['JENIS_KELAMIN'] === 1 ? 'Laki-laki' : 'Perempuan',
+                'tempat_lahir'         => $pasien['TEMPAT_LAHIR'] ?: 'Kupang',
+                'alamat'               => $pasien['ALAMAT'],
+                'nik'                  => $nikVal,
+                'golongan_darah'       => $golDarahTeks,
+                'is_ranap'             => !empty($rawatInapAktif),
+                'ranap_aktif'          => $rawatInapAktif ?: null,
+                'login_time'           => date('Y-m-d H:i:s')
+            ];
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    public static function getBearerToken() {
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+        if (empty($authHeader) && function_exists('apache_request_headers')) {
+            $apacheHeaders = apache_request_headers();
+            $authHeader = $apacheHeaders['Authorization'] ?? $apacheHeaders['authorization'] ?? '';
+        }
+        if (!empty($authHeader) && preg_match('/Bearer\s+(\S+)/i', $authHeader, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+
     public static function requireAuth() {
+        // 1. Cek Bearer Token (Untuk Flutter Mobile Client)
+        $token = self::getBearerToken();
+        if ($token) {
+            $norm = self::verifyAuthToken($token);
+            if ($norm) {
+                $user = self::getUserDataByNorm($norm);
+                if ($user) {
+                    return $user;
+                }
+            }
+            self::jsonResponse([
+                'success' => false,
+                'authenticated' => false,
+                'message' => 'Token otentikasi tidak valid atau telah kedaluwarsa. Silakan masukkan PIN kembali.'
+            ], 401);
+        }
+
+        // 2. Fallback ke Session PHP (Untuk Web / PWA yang lama)
         if (!isset($_SESSION['pasien_user']) || empty($_SESSION['pasien_user']['norm'])) {
             self::jsonResponse([
                 'success' => false,
@@ -294,6 +455,17 @@ class PasienConfig {
     }
 
     public static function getActivePatient() {
+        // 1. Cek Bearer Token (Flutter)
+        $token = self::getBearerToken();
+        if ($token) {
+            $norm = self::verifyAuthToken($token);
+            if ($norm) {
+                return self::getUserDataByNorm($norm);
+            }
+            return null;
+        }
+
+        // 2. Fallback ke Session PHP (Web)
         if (!isset($_SESSION['pasien_user']) || empty($_SESSION['pasien_user']['norm'])) {
             return null;
         }
